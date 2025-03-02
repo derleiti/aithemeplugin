@@ -1,0 +1,6 @@
+2025-03-02 22:50:54,588 - ERROR - Not a git repository. Please initialize git first.
+2025-03-02 22:55:12,872 - ERROR - Git command failed: Command '['git', 'fetch', 'origin', 'main']' returned non-zero exit status 128.
+2025-03-02 22:55:12,872 - ERROR - Command output: None
+2025-03-02 22:58:38,854 - INFO - Uncommitted changes detected. Staging and committing.
+2025-03-02 22:58:38,863 - ERROR - Git command failed: Command '['git', 'fetch', 'origin', 'main']' returned non-zero exit status 128.
+2025-03-02 22:58:38,863 - ERROR - Command output: None

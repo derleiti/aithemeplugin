@@ -18,8 +18,8 @@ Ein modernes WordPress-Theme für Blog- und Projektdarstellung mit optimiertem D
 
 ## Installation
 
-1. Lade das Theme in dein WordPress themes-Verzeichnis hoch
-2. Aktiviere das Theme im WordPress-Admin unter Design > Themes
+1. git clone https://github.com/derleiti/aithemeplugin
+2. Aktiviere das Theme und das plugin im WordPress-Admin bereich
 
 ## Anpassung
 

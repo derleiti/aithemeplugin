@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Derleiti Modern Theme - Enhanced Installation Script
-# Version 3.1.0 - Fully compatible with WordPress 6.7 and supports PHP 8.1-8.3
+# Version 3.1.1 - Fully compatible with WordPress 6.7 and supports PHP 8.1-8.3
 # Enhanced error handling, improved logging, expanded AI integration, and streamlined installation process
 
 # Color codes for better readability
@@ -17,7 +17,7 @@ NC='\033[0m' # No Color
 # Variables
 DEBUG_MODE=0
 LOG_FILE="derleiti_install_$(date +%Y%m%d_%H%M%S).log"
-SCRIPT_VERSION="3.1.0"
+SCRIPT_VERSION="3.1.1"
 MIN_PHP_VERSION="8.1.0"
 MIN_WP_VERSION="6.2.0"
 RECOMMENDED_WP_VERSION="6.7"
@@ -82,7 +82,7 @@ log_message() {
     echo "[$(date +"%Y-%m-%d %H:%M:%S")] $1" >> "$LOG_FILE"
     
     # Rotate log file if it gets too large (over 5MB)
-    if [ -f "$LOG_FILE" ] && [ $(stat -c%s "$LOG_FILE") -gt 5242880 ]; then
+    if [ -f "$LOG_FILE" ] && [ $(stat -c%s "$LOG_FILE" 2>/dev/null || stat -f%z "$LOG_FILE" 2>/dev/null) -gt 5242880 ]; then
         mv "$LOG_FILE" "${LOG_FILE}.old"
         echo "[$(date +"%Y-%m-%d %H:%M:%S")] Log rotated due to size" > "$LOG_FILE"
     fi
@@ -98,17 +98,29 @@ execute_command() {
     log_message "COMMAND: $command"
     
     # Use timeout to prevent hanging commands
-    output=$(timeout $timeout bash -c "$command" 2>&1)
-    status=$?
-    
-    if [ $status -eq 124 ]; then
-        print_error "$description timed out after $timeout seconds"
-        log_message "COMMAND TIMEOUT ($timeout seconds): $command"
-        return 124
-    elif [ $status -ne 0 ]; then
-        print_error "$description failed: $output"
-        log_message "COMMAND FAILED ($status): $output"
-        return 1
+    if command -v timeout >/dev/null 2>&1; then
+        output=$(timeout $timeout bash -c "$command" 2>&1)
+        status=$?
+        
+        if [ $status -eq 124 ]; then
+            print_error "$description timed out after $timeout seconds"
+            log_message "COMMAND TIMEOUT ($timeout seconds): $command"
+            return 124
+        elif [ $status -ne 0 ]; then
+            print_error "$description failed: $output"
+            log_message "COMMAND FAILED ($status): $output"
+            return 1
+        fi
+    else
+        # Fallback if timeout command is not available
+        output=$(bash -c "$command" 2>&1)
+        status=$?
+        
+        if [ $status -ne 0 ]; then
+            print_error "$description failed: $output"
+            log_message "COMMAND FAILED ($status): $output"
+            return 1
+        fi
     fi
     
     print_debug "Command executed successfully"
@@ -238,29 +250,29 @@ check_required_files() {
     if [[ ! -d "$theme_files_dir" || "$theme_files_dir" == *".."* ]]; then
         print_error "Invalid theme files directory: $theme_files_dir"
         return 2
-    }
+    fi
     
     # Minimum requirements for theme functionality
-    if [ ! -f "$theme_files_dir/style.css" ] && [ ! -f "$SCRIPT_DIR/theme-files/style-css.css" ]; then
+    if [ ! -f "$theme_files_dir/style.css" ] && [ ! -f "$theme_files_dir/style-css.css" ]; then
         print_warning "style.css was not found."
         result=1
     fi
     
-    if [ ! -f "$theme_files_dir/functions.php" ] && [ ! -f "$SCRIPT_DIR/theme-files/functions-php.php" ]; then
+    if [ ! -f "$theme_files_dir/functions.php" ] && [ ! -f "$theme_files_dir/functions-php.php" ]; then
         print_warning "functions.php was not found."
         result=1
     fi
     
-    if [ ! -f "$theme_files_dir/index.php" ] && [ ! -f "$SCRIPT_DIR/theme-files/index-php.php" ]; then
+    if [ ! -f "$theme_files_dir/index.php" ] && [ ! -f "$theme_files_dir/index-php.php" ]; then
         print_warning "index.php was not found."
         result=1
-    }
+    fi
     
     # Check for theme.json (required for newer features)
-    if [ ! -f "$theme_files_dir/theme.json" ] && [ ! -f "$SCRIPT_DIR/theme-files/theme-json.json" ]; then
+    if [ ! -f "$theme_files_dir/theme.json" ] && [ ! -f "$theme_files_dir/theme-json.json" ]; then
         print_warning "theme.json was not found. This file is recommended for block theme features."
         result=1
-    }
+    fi
     
     return $result
 }
@@ -316,13 +328,13 @@ download_file() {
     if [[ ! "$url" =~ ^https?:// ]]; then
         print_error "Invalid URL format: $url"
         return 1
-    }
+    fi
     
     # Validate destination path
     if [[ "$destination" == *".."* ]]; then
         print_error "Invalid destination path: $destination"
         return 1
-    }
+    fi
     
     if command_exists curl; then
         curl --connect-timeout "$timeout" -s -L "$url" -o "$destination"
@@ -348,13 +360,13 @@ safe_copy() {
     if [[ "$src" == *".."* || "$dest" == *".."* ]]; then
         print_error "Invalid path detected in copy operation"
         return 1
-    }
+    fi
     
     # Check if source file exists
     if [ ! -f "$src" ]; then
         print_warning "$description: Source file not found: $src"
         return 1
-    }
+    fi
     
     # Check if destination directory exists and create it if not
     local dest_dir=$(dirname "$dest")
@@ -364,14 +376,14 @@ safe_copy() {
             print_error "$description: Could not create destination directory: $dest_dir"
             return 1
         fi
-    }
+    fi
     
     # Copy file
     cp -f "$src" "$dest" 2>/dev/null
     if [ $? -ne 0 ]; then
         print_error "$description: Error copying"
         return 1
-    }
+    fi
     
     # Set proper permissions
     chmod 644 "$dest"
@@ -387,9 +399,22 @@ init_log_file() {
     echo "Script Version: $SCRIPT_VERSION" >> "$LOG_FILE"
     echo "System Information:" >> "$LOG_FILE"
     echo "  - OS: $(uname -s)" >> "$LOG_FILE"
-    echo "  - Distribution: $(cat /etc/os-release 2>/dev/null | grep "PRETTY_NAME" | cut -d "=" -f 2 || echo "Unknown")" >> "$LOG_FILE"
+    
+    # More portable check for distribution
+    if [ -f "/etc/os-release" ]; then
+        echo "  - Distribution: $(grep "PRETTY_NAME" /etc/os-release | cut -d "=" -f 2 | sed 's/"//g')" >> "$LOG_FILE"
+    else
+        echo "  - Distribution: Unknown" >> "$LOG_FILE"
+    fi
+    
     echo "  - User: $(whoami)" >> "$LOG_FILE"
-    echo "  - PHP: $(php -v 2>/dev/null | head -n 1 || echo "Not installed")" >> "$LOG_FILE"
+    
+    if command_exists php; then
+        echo "  - PHP: $(php -v 2>/dev/null | head -n 1)" >> "$LOG_FILE"
+    else
+        echo "  - PHP: Not installed" >> "$LOG_FILE"
+    fi
+    
     echo "==========================================" >> "$LOG_FILE"
     
     # Set secure permissions for log file
@@ -411,7 +436,7 @@ display_summary() {
         if [[ $INSTALL_PLUGIN == "j" ]] && [ -d "$PLUGIN_PATH" ]; then
             echo -e "${YELLOW}The plugin is installed in $PLUGIN_PATH.${NC}"
             echo -e "${YELLOW}Activate the plugin in the WordPress admin under 'Plugins'.${NC}"
-        }
+        fi
         
         # Next steps with more detailed information
         echo -e "\n${BLUE}${BOLD}Next Steps:${NC}"
@@ -481,7 +506,7 @@ display_summary() {
             
             echo -e "${MAGENTA}Theme directory content:${NC}"
             ls -la "$THEME_PATH" 2>/dev/null || echo -e "${MAGENTA}Cannot display content.${NC}"
-        }
+        fi
         
         echo -e "${YELLOW}Installation log saved to: $LOG_FILE${NC}"
     fi
@@ -947,8 +972,14 @@ EOF
 
     # Set permissions with error handling
     print_progress "Setting permissions"
-    execute_command "Setting permissions for directories" "chmod -R 755 \"$THEME_PATH\"" || print_warning "Could not set permissions for directories"
-    execute_command "Setting permissions for files" "find \"$THEME_PATH\" -type f -exec chmod 644 {} \\;" || print_warning "Could not set permissions for files"
+    if ! execute_command "Setting permissions for directories" "find \"$THEME_PATH\" -type d -exec chmod 755 {} \\;"; then
+        print_warning "Could not set permissions for directories"
+    fi
+    
+    if ! execute_command "Setting permissions for files" "find \"$THEME_PATH\" -type f -exec chmod 644 {} \\;"; then
+        print_warning "Could not set permissions for files"
+    fi
+    
     print_success "Done"
 
     return 0
@@ -1006,8 +1037,12 @@ install_plugin() {
             fi
         else
             # Create standard plugin-main.php from the template in documents
-            if ! safe_copy "$SCRIPT_DIR/theme-files/plugin-main.php" "$PLUGIN_PATH/plugin-main.php" "plugin-main.php"; then
-                cat > "$PLUGIN_PATH/plugin-main.php" << 'EOF'
+            if [ -f "$SCRIPT_DIR/theme-files/plugin-main.php" ]; then
+                if ! safe_copy "$SCRIPT_DIR/theme-files/plugin-main.php" "$PLUGIN_PATH/plugin-main.php" "plugin-main.php"; then
+                    print_warning "Could not copy plugin-main.php from script directory"
+                    
+                    # Create a default plugin file with template content
+                    cat > "$PLUGIN_PATH/plugin-main.php" << 'EOF'
 <?php
 /**
  * Plugin Name: Derleiti Modern Theme Plugin
@@ -1426,13 +1461,14 @@ function derleiti_plugin_register_rest_routes() {
 }
 add_action('rest_api_init', 'derleiti_plugin_register_rest_routes');
 EOF
-                print_success "Main plugin file created"
+                else
+                    print_success "Main plugin file created"
+                fi
             fi
         fi
         
         # Copy Admin class
         print_progress "Creating Admin class"
-        mkdir -p "$PLUGIN_PATH/includes"
         if [ -f "$THEME_FILES_DIR/admin-class.php" ]; then
             if ! safe_copy "$THEME_FILES_DIR/admin-class.php" "$PLUGIN_PATH/includes/class-derleiti-admin.php" "Admin class"; then
                 print_warning "Could not copy Admin class"
@@ -1527,7 +1563,7 @@ EOF
                     print_success "Class file copied from script directory: $dest_path"
                 fi
             fi
-        }
+        done
         
         # Copy required AI settings files
         print_progress "Copying AI settings files"
@@ -1548,7 +1584,7 @@ EOF
                     print_success "AI settings file copied: $dest_path"
                 fi
             fi
-        }
+        done
         
         # Copy CSS and JS files
         print_progress "Copying CSS and JS files"
@@ -1571,7 +1607,7 @@ EOF
                     print_success "Asset file copied: $dest_path"
                 fi
             fi
-        }
+        done
         
         # Create basic admin view templates
         print_progress "Creating admin view templates"
@@ -1630,8 +1666,13 @@ EOF
         
         # Set permissions for the plugin
         print_progress "Setting permissions for the plugin"
-        execute_command "Setting permissions for plugin directories" "chmod -R 755 \"$PLUGIN_PATH\"" || print_warning "Could not set permissions for plugin directories"
-        execute_command "Setting permissions for plugin files" "find \"$PLUGIN_PATH\" -type f -exec chmod 644 {} \\;" || print_warning "Could not set permissions for plugin files"
+        if ! execute_command "Setting permissions for plugin directories" "find \"$PLUGIN_PATH\" -type d -exec chmod 755 {} \\;"; then
+            print_warning "Could not set permissions for plugin directories"
+        fi
+        
+        if ! execute_command "Setting permissions for plugin files" "find \"$PLUGIN_PATH\" -type f -exec chmod 644 {} \\;"; then
+            print_warning "Could not set permissions for plugin files"
+        fi
         
         print_success "Plugin installation completed!"
     fi

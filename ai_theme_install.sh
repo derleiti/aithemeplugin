@@ -1030,16 +1030,25 @@ install_plugin() {
         # Copy plugin-main.php
         print_progress "Creating plugin-main.php"
         if [ -f "$THEME_FILES_DIR/plugin-main.php" ]; then
-            if ! safe_copy "$THEME_FILES_DIR/plugin-main.php" "$PLUGIN_PATH/plugin-main.php" "plugin-main.php"; then
+            # Create a temp file with modifications to avoid WP_DEBUG clash
+            TMP_PLUGIN_FILE=$(mktemp)
+            cat "$THEME_FILES_DIR/plugin-main.php" | sed 's/define.*WP_DEBUG/defined("WP_DEBUG") or define/g' > "$TMP_PLUGIN_FILE"
+            if ! safe_copy "$TMP_PLUGIN_FILE" "$PLUGIN_PATH/plugin-main.php" "plugin-main.php"; then
                 print_warning "Could not copy plugin-main.php"
+                rm -f "$TMP_PLUGIN_FILE"
             else
-                print_success "Main plugin file copied"
+                print_success "Main plugin file copied and modified"
+                rm -f "$TMP_PLUGIN_FILE"
             fi
         else
             # Create standard plugin-main.php from the template in documents
             if [ -f "$SCRIPT_DIR/theme-files/plugin-main.php" ]; then
-                if ! safe_copy "$SCRIPT_DIR/theme-files/plugin-main.php" "$PLUGIN_PATH/plugin-main.php" "plugin-main.php"; then
+                # Create a temp file with modifications to avoid WP_DEBUG clash
+                TMP_PLUGIN_FILE=$(mktemp)
+                cat "$SCRIPT_DIR/theme-files/plugin-main.php" | sed 's/define.*WP_DEBUG/defined("WP_DEBUG") or define/g' > "$TMP_PLUGIN_FILE"
+                if ! safe_copy "$TMP_PLUGIN_FILE" "$PLUGIN_PATH/plugin-main.php" "plugin-main.php"; then
                     print_warning "Could not copy plugin-main.php from script directory"
+                    rm -f "$TMP_PLUGIN_FILE"
                     
                     # Create a default plugin file with template content
                     cat > "$PLUGIN_PATH/plugin-main.php" << 'EOF'
@@ -1076,7 +1085,7 @@ define('DERLEITI_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('DERLEITI_PLUGIN_FILE', __FILE__);
 
 // Debug mode (only for development)
-define('DERLEITI_DEBUG', false);
+defined('DERLEITI_DEBUG') or define('DERLEITI_DEBUG', false);
 
 /**
  * Plugin initialization
@@ -1103,19 +1112,31 @@ function derleiti_plugin_init() {
         'class-derleiti-compatibility.php'
     ];
     
-    // Load main components
+    // Load main components with error handling
     foreach ($core_files as $file) {
         $filepath = $includes_dir . $file;
         if (file_exists($filepath)) {
-            require_once $filepath;
+            try {
+                require_once $filepath;
+            } catch (Exception $e) {
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('Error loading component ' . $file . ': ' . $e->getMessage());
+                }
+            }
         }
     }
     
-    // Load optional components
+    // Load optional components with error handling
     foreach ($optional_files as $file) {
         $filepath = $includes_dir . $file;
         if (file_exists($filepath)) {
-            require_once $filepath;
+            try {
+                require_once $filepath;
+            } catch (Exception $e) {
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('Error loading optional component ' . $file . ': ' . $e->getMessage());
+                }
+            }
         }
     }
 
@@ -1470,18 +1491,33 @@ EOF
         # Copy Admin class
         print_progress "Creating Admin class"
         if [ -f "$THEME_FILES_DIR/admin-class.php" ]; then
-            if ! safe_copy "$THEME_FILES_DIR/admin-class.php" "$PLUGIN_PATH/includes/class-derleiti-admin.php" "Admin class"; then
-                print_warning "Could not copy Admin class"
+            # Copy but fix the DERLEITI_PLUGIN_FILE reference
+            if [ -f "$THEME_FILES_DIR/admin-class.php" ]; then
+                # Create a temp file with modifications
+                TMP_ADMIN_FILE=$(mktemp)
+                cat "$THEME_FILES_DIR/admin-class.php" | sed 's/plugin_basename(DERLEITI_PLUGIN_FILE)/plugin_basename(__FILE__)/g' > "$TMP_ADMIN_FILE"
+                if ! safe_copy "$TMP_ADMIN_FILE" "$PLUGIN_PATH/includes/class-derleiti-admin.php" "Admin class"; then
+                    print_warning "Could not copy Admin class"
+                    rm -f "$TMP_ADMIN_FILE"
+                else
+                    print_success "Admin class copied and modified"
+                    rm -f "$TMP_ADMIN_FILE"
+                fi
             else
-                print_success "Admin class copied"
+                print_warning "Could not copy Admin class"
             fi
         else
             # Try to copy from script directory
             if [ -f "$SCRIPT_DIR/theme-files/admin-class.php" ]; then
-                if ! safe_copy "$SCRIPT_DIR/theme-files/admin-class.php" "$PLUGIN_PATH/includes/class-derleiti-admin.php" "Admin class"; then
+                # Create a temp file with modifications
+                TMP_ADMIN_FILE=$(mktemp)
+                cat "$SCRIPT_DIR/theme-files/admin-class.php" | sed 's/plugin_basename(DERLEITI_PLUGIN_FILE)/plugin_basename(__FILE__)/g' > "$TMP_ADMIN_FILE"
+                if ! safe_copy "$TMP_ADMIN_FILE" "$PLUGIN_PATH/includes/class-derleiti-admin.php" "Admin class"; then
                     print_warning "Could not copy Admin class from script directory"
+                    rm -f "$TMP_ADMIN_FILE"
                 else
-                    print_success "Admin class copied from script directory"
+                    print_success "Admin class copied from script directory and modified"
+                    rm -f "$TMP_ADMIN_FILE"
                 fi
             else
                 # Create standard Admin class (simplified for brevity in this example)
@@ -1516,7 +1552,7 @@ class Derleiti_Admin {
         // Add dashboard widget
         add_action('wp_dashboard_setup', array($this, 'add_dashboard_widget'));
         
-        // Add plugin action links
+        // Add plugin action links - hardcoded to avoid dependency on DERLEITI_PLUGIN_FILE
         add_filter('plugin_action_links_derleiti-plugin/plugin-main.php', array($this, 'add_plugin_action_links'));
         
         // Admin notices for plugin updates and tips

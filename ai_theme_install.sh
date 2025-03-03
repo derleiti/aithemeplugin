@@ -221,7 +221,7 @@ create_directory() {
     if [ ! -w "$dir" ]; then
         print_error "No write permission for directory: $dir"
         return 1
-    }
+    fi
     
     # Set secure permissions
     chmod 755 "$dir"
@@ -277,7 +277,7 @@ check_dependencies() {
         print_info "On macOS: brew install unzip"
     else
         print_success "unzip is installed"
-    }
+    fi
     
     # Check if curl or wget is installed
     if ! command_exists curl && ! command_exists wget; then
@@ -474,7 +474,7 @@ display_summary() {
             
             if [[ $INSTALL_PLUGIN == "j" ]]; then
                 echo -e "${MAGENTA}Plugin Directory: $PLUGIN_PATH${NC}"
-            }
+            fi
             
             echo -e "${MAGENTA}Theme files in theme-files directory:${NC}"
             ls -la "$THEME_FILES_DIR" 2>/dev/null || echo -e "${MAGENTA}Cannot display content.${NC}"

@@ -66,17 +66,69 @@ check_php_version() {
 check_wp_version() {
     if [ -f "$WP_PATH/wp-includes/version.php" ]; then
         WP_VERSION=$(grep "wp_version = " "$WP_PATH/wp-includes/version.php" | cut -d "'" -f 2)
+        # Fix: Align version check with documentation - WordPress 6.2+ is supported
         if [[ $(php -r "echo version_compare('$WP_VERSION', '6.2.0', '>=') ? '1' : '0';") == "1" ]]; then
             print_success "WordPress Version: $WP_VERSION"
             return 0
         else
-            print_warning "WordPress Version $WP_VERSION wird nicht empfohlen. WordPress 6.2 oder höher wird empfohlen."
+            print_warning "WordPress Version $WP_VERSION wird nicht unterstützt. WordPress 6.2 oder höher wird benötigt."
             return 1
         fi
     else
         print_warning "WordPress-Version konnte nicht ermittelt werden."
         return 1
     fi
+}
+
+# Funktion zur Überprüfung und Erstellung von Verzeichnissen mit Berechtigungsprüfung
+create_directory() {
+    local dir="$1"
+    local msg="$2"
+    
+    if [ ! -d "$dir" ]; then
+        mkdir -p "$dir" 2>/dev/null
+        if [ $? -ne 0 ]; then
+            print_error "Fehler beim Erstellen des Verzeichnisses: $dir"
+            print_error "Überprüfen Sie die Berechtigungen."
+            return 1
+        else
+            if [ -n "$msg" ]; then
+                print_success "$msg"
+            fi
+        fi
+    fi
+    
+    # Überprüfe Schreibrechte
+    if [ ! -w "$dir" ]; then
+        print_error "Keine Schreibberechtigung für Verzeichnis: $dir"
+        return 1
+    fi
+    
+    return 0
+}
+
+# Funktion zur Überprüfung, ob alle benötigten Dateien vorhanden sind
+check_required_files() {
+    local theme_files_dir="$1"
+    local result=0
+    
+    # Mindestvoraussetzungen für Theme-Funktionalität
+    if [ ! -f "$theme_files_dir/style.css" ] && [ ! -f "$SCRIPT_DIR/theme-files/style-css.css" ]; then
+        print_warning "style.css wurde nicht gefunden."
+        result=1
+    fi
+    
+    if [ ! -f "$theme_files_dir/functions.php" ] && [ ! -f "$SCRIPT_DIR/theme-files/functions-php.php" ]; then
+        print_warning "functions.php wurde nicht gefunden."
+        result=1
+    fi
+    
+    if [ ! -f "$theme_files_dir/index.php" ] && [ ! -f "$SCRIPT_DIR/theme-files/index-php.php" ]; then
+        print_warning "index.php wurde nicht gefunden."
+        result=1
+    fi
+    
+    return $result
 }
 
 print_header
@@ -100,8 +152,10 @@ if [ ! -d "$WP_PATH" ]; then
     echo -e "${YELLOW}Soll das Verzeichnis erstellt werden? (j/n)${NC}"
     read -p "> " CREATE_DIR
     if [[ $CREATE_DIR == "j" || $CREATE_DIR == "J" ]]; then
-        mkdir -p "$WP_PATH"
-        print_success "Verzeichnis wurde erstellt."
+        if ! create_directory "$WP_PATH" "Verzeichnis wurde erstellt."; then
+            print_error "Installation abgebrochen."
+            exit 1
+        fi
     else
         print_error "Installation abgebrochen."
         exit 1
@@ -123,14 +177,14 @@ else
     
     # Erstelle Verzeichnisstruktur für WordPress
     print_info "Erstelle notwendige Verzeichnisse für WordPress..."
-    mkdir -p "$WP_PATH/wp-content/themes"
-    mkdir -p "$WP_PATH/wp-content/plugins"
-fi
-
-# Überprüfe, ob das Themes-Verzeichnis existiert oder erstelle es
-if [ ! -d "$WP_PATH/wp-content/themes" ]; then
-    mkdir -p "$WP_PATH/wp-content/themes"
-    print_success "Themes-Verzeichnis erstellt"
+    if ! create_directory "$WP_PATH/wp-content/themes" "Themes-Verzeichnis erstellt"; then
+        print_error "Installation abgebrochen."
+        exit 1
+    fi
+    if ! create_directory "$WP_PATH/wp-content/plugins" "Plugins-Verzeichnis erstellt"; then
+        print_error "Installation abgebrochen."
+        exit 1
+    fi
 fi
 
 # Setze den Theme-Pfad und Plugin-Pfad
@@ -160,6 +214,10 @@ if [ -d "$THEME_PATH" ]; then
     BACKUP_PATH="$THEME_PATH-backup-$TIMESTAMP"
     print_info "Erstelle Backup unter: $BACKUP_PATH"
     cp -r "$THEME_PATH" "$BACKUP_PATH"
+    if [ $? -ne 0 ]; then
+        print_error "Backup konnte nicht erstellt werden. Überprüfen Sie die Berechtigungen."
+        exit 1
+    fi
     rm -rf "$THEME_PATH"
     print_success "Backup erstellt und altes Theme-Verzeichnis entfernt"
 fi
@@ -171,6 +229,10 @@ if [[ $INSTALL_PLUGIN == "j" ]] && [ -d "$PLUGIN_PATH" ]; then
     BACKUP_PLUGIN_PATH="$PLUGIN_PATH-backup-$TIMESTAMP"
     print_info "Erstelle Backup unter: $BACKUP_PLUGIN_PATH"
     cp -r "$PLUGIN_PATH" "$BACKUP_PLUGIN_PATH"
+    if [ $? -ne 0 ]; then
+        print_error "Backup des Plugins konnte nicht erstellt werden. Überprüfen Sie die Berechtigungen."
+        exit 1
+    fi
     rm -rf "$PLUGIN_PATH"
     print_success "Backup erstellt und altes Plugin-Verzeichnis entfernt"
 fi
@@ -179,30 +241,33 @@ fi
 print_section "Erstelle Theme-Verzeichnisstruktur"
 
 print_progress "Erstelle Hauptverzeichnisse"
-mkdir -p "$THEME_PATH"
-mkdir -p "$THEME_PATH/inc"
-mkdir -p "$THEME_PATH/js"
-mkdir -p "$THEME_PATH/template-parts"
-mkdir -p "$THEME_PATH/template-parts/content"
-mkdir -p "$THEME_PATH/template-parts/blocks"
-mkdir -p "$THEME_PATH/assets/css"
-mkdir -p "$THEME_PATH/assets/js"
-mkdir -p "$THEME_PATH/assets/images"
-mkdir -p "$THEME_PATH/assets/fonts"
-mkdir -p "$THEME_PATH/templates"
-mkdir -p "$THEME_PATH/parts"
-mkdir -p "$THEME_PATH/patterns"
-mkdir -p "$THEME_PATH/languages"
+if ! create_directory "$THEME_PATH" ""; then
+    print_error "Fehler beim Erstellen des Theme-Hauptverzeichnisses. Installation abgebrochen."
+    exit 1
+fi
+create_directory "$THEME_PATH/inc" ""
+create_directory "$THEME_PATH/js" ""
+create_directory "$THEME_PATH/template-parts" ""
+create_directory "$THEME_PATH/template-parts/content" ""
+create_directory "$THEME_PATH/template-parts/blocks" ""
+create_directory "$THEME_PATH/assets/css" ""
+create_directory "$THEME_PATH/assets/js" ""
+create_directory "$THEME_PATH/assets/images" ""
+create_directory "$THEME_PATH/assets/fonts" ""
+create_directory "$THEME_PATH/templates" ""
+create_directory "$THEME_PATH/parts" ""
+create_directory "$THEME_PATH/patterns" ""
+create_directory "$THEME_PATH/languages" ""
 print_success "Fertig"
 
 # Neu in 2.6: Zusätzliche FSE-Verzeichnisse
 print_progress "Erstelle FSE-Unterstützungsverzeichnisse"
-mkdir -p "$THEME_PATH/styles"
-mkdir -p "$THEME_PATH/templates/single"
-mkdir -p "$THEME_PATH/templates/archive"
-mkdir -p "$THEME_PATH/templates/page"
-mkdir -p "$THEME_PATH/parts/header"
-mkdir -p "$THEME_PATH/parts/footer"
+create_directory "$THEME_PATH/styles" ""
+create_directory "$THEME_PATH/templates/single" ""
+create_directory "$THEME_PATH/templates/archive" ""
+create_directory "$THEME_PATH/templates/page" ""
+create_directory "$THEME_PATH/parts/header" ""
+create_directory "$THEME_PATH/parts/footer" ""
 print_success "Fertig"
 
 # Prüfen, ob Verzeichnisse erfolgreich erstellt wurden
@@ -236,9 +301,28 @@ if [ ! -d "$THEME_FILES_DIR" ]; then
     fi
 fi
 
+# Überprüfe, ob alle erforderlichen Dateien vorhanden sind
+print_progress "Überprüfe erforderliche Dateien"
+if ! check_required_files "$THEME_FILES_DIR"; then
+    print_warning "Einige wichtige Theme-Dateien fehlen."
+    echo -e "${YELLOW}Trotzdem fortfahren? Dies könnte zu einem nicht funktionierenden Theme führen. (j/n)${NC}"
+    read -p "> " CONTINUE_MISSING_FILES
+    if [[ $CONTINUE_MISSING_FILES != "j" && $CONTINUE_MISSING_FILES != "J" ]]; then
+        print_error "Installation abgebrochen."
+        exit 1
+    fi
+else
+    print_success "Alle erforderlichen Dateien gefunden"
+fi
+
 # Extrahiere die Dateien aus den hochgeladenen Dokumenten
 print_progress "Extrahiere style.css"
-cat > "$THEME_PATH/style.css" << 'EOF'
+if [ -f "$THEME_FILES_DIR/style.css" ]; then
+    cp -f "$THEME_FILES_DIR/style.css" "$THEME_PATH/style.css"
+elif [ -f "$SCRIPT_DIR/theme-files/style-css.css" ]; then
+    cp -f "$SCRIPT_DIR/theme-files/style-css.css" "$THEME_PATH/style.css"
+else
+    cat > "$THEME_PATH/style.css" << 'EOF'
 /*
 Theme Name: Derleiti Modern
 Theme URI: https://derleiti.de
@@ -298,11 +382,16 @@ Tags: blog, portfolio, grid-layout, custom-colors, custom-logo, custom-menu, fea
 
 /* Rest der CSS-Datei hier... */
 EOF
+fi
 print_success "Fertig"
 
 print_progress "Extrahiere theme.json"
-cp -f "$THEME_FILES_DIR/theme.json" "$THEME_PATH/theme.json" 2>/dev/null || \
-cat > "$THEME_PATH/theme.json" << 'EOF'
+if [ -f "$THEME_FILES_DIR/theme.json" ]; then
+    cp -f "$THEME_FILES_DIR/theme.json" "$THEME_PATH/theme.json"
+elif [ -f "$SCRIPT_DIR/theme-files/theme-json.json" ]; then
+    cp -f "$SCRIPT_DIR/theme-files/theme-json.json" "$THEME_PATH/theme.json"
+else
+    cat > "$THEME_PATH/theme.json" << 'EOF'
 {
   "$schema": "https://schemas.wp.org/trunk/theme.json",
   "version": 2,
@@ -349,26 +438,88 @@ cat > "$THEME_PATH/theme.json" << 'EOF'
   }
 }
 EOF
+fi
 print_success "Fertig"
 
-# Kopiere weitere Theme-Dateien
+# Kopiere weitere Theme-Dateien mit Fehlerprüfung
 print_progress "Kopiere weitere Theme-Dateien"
-cp "$THEME_FILES_DIR/functions.php" "$THEME_PATH/functions.php" 2>/dev/null
-cp "$THEME_FILES_DIR/index.php" "$THEME_PATH/index.php" 2>/dev/null
-cp "$THEME_FILES_DIR/header.php" "$THEME_PATH/header.php" 2>/dev/null
-cp "$THEME_FILES_DIR/footer.php" "$THEME_PATH/footer.php" 2>/dev/null
-cp "$THEME_FILES_DIR/sidebar.php" "$THEME_PATH/sidebar.php" 2>/dev/null
-mkdir -p "$THEME_PATH/template-parts" 2>/dev/null
-cp "$THEME_FILES_DIR/template-parts/content.php" "$THEME_PATH/template-parts/content.php" 2>/dev/null
-cp "$THEME_FILES_DIR/template-parts/content-none.php" "$THEME_PATH/template-parts/content-none.php" 2>/dev/null
-mkdir -p "$THEME_PATH/js" 2>/dev/null
-cp "$THEME_FILES_DIR/js/navigation.js" "$THEME_PATH/js/navigation.js" 2>/dev/null
-cp "$THEME_FILES_DIR/README.md" "$THEME_PATH/README.md" 2>/dev/null
-print_success "Fertig"
+COPY_ERROR=0
 
-# Extrahiere die navigation.js Datei direkt
-if [ ! -f "$THEME_PATH/js/navigation.js" ]; then
-    mkdir -p "$THEME_PATH/js"
+# Funktion zum Kopieren von Dateien mit Fehlerprüfung
+copy_file() {
+    local src="$1"
+    local dest="$2"
+    
+    if [ -f "$src" ]; then
+        cp "$src" "$dest" 2>/dev/null
+        if [ $? -ne 0 ]; then
+            print_warning "Fehler beim Kopieren von $(basename "$src")"
+            return 1
+        fi
+        return 0
+    fi
+    return 1
+}
+
+# Funktionen zur Extraktion von Dateien aus den Dokumenten mit Namenskorrektur
+copy_from_docs() {
+    local filename="$1"
+    local dest="$2"
+    local docfilename="${filename}-php.php"
+    
+    if [ -f "$THEME_FILES_DIR/$filename.php" ]; then
+        copy_file "$THEME_FILES_DIR/$filename.php" "$dest" && return 0
+    elif [ -f "$SCRIPT_DIR/theme-files/$docfilename" ]; then
+        copy_file "$SCRIPT_DIR/theme-files/$docfilename" "$dest" && return 0
+    fi
+    return 1
+}
+
+# Kopiere Kerndateien
+if ! copy_from_docs "functions" "$THEME_PATH/functions.php"; then
+    print_warning "functions.php wurde nicht gefunden oder konnte nicht kopiert werden."
+    COPY_ERROR=1
+fi
+
+if ! copy_from_docs "index" "$THEME_PATH/index.php"; then
+    print_warning "index.php wurde nicht gefunden oder konnte nicht kopiert werden."
+    COPY_ERROR=1
+fi
+
+if ! copy_from_docs "header" "$THEME_PATH/header.php"; then
+    print_warning "header.php wurde nicht gefunden oder konnte nicht kopiert werden."
+    COPY_ERROR=1
+fi
+
+if ! copy_from_docs "footer" "$THEME_PATH/footer.php"; then
+    print_warning "footer.php wurde nicht gefunden oder konnte nicht kopiert werden."
+    COPY_ERROR=1
+fi
+
+if ! copy_from_docs "sidebar" "$THEME_PATH/sidebar.php"; then
+    print_warning "sidebar.php wurde nicht gefunden oder konnte nicht kopiert werden."
+    COPY_ERROR=1
+fi
+
+# Erstelle template-parts Verzeichnis und Dateien
+mkdir -p "$THEME_PATH/template-parts" 2>/dev/null
+if ! copy_from_docs "template-parts/content" "$THEME_PATH/template-parts/content.php"; then
+    print_warning "content.php wurde nicht gefunden oder konnte nicht kopiert werden."
+    COPY_ERROR=1
+fi
+
+if ! copy_from_docs "template-parts/content-none" "$THEME_PATH/template-parts/content-none.php"; then
+    print_warning "content-none.php wurde nicht gefunden oder konnte nicht kopiert werden."
+    COPY_ERROR=1
+fi
+
+# Erstelle js-Verzeichnis und kopiere navigation.js
+mkdir -p "$THEME_PATH/js" 2>/dev/null
+if [ -f "$THEME_FILES_DIR/js/navigation.js" ]; then
+    copy_file "$THEME_FILES_DIR/js/navigation.js" "$THEME_PATH/js/navigation.js"
+elif [ -f "$SCRIPT_DIR/theme-files/navigation-js.js" ]; then
+    copy_file "$SCRIPT_DIR/theme-files/navigation-js.js" "$THEME_PATH/js/navigation.js"
+else
     print_progress "Erstelle navigation.js"
     cat > "$THEME_PATH/js/navigation.js" << 'EOF'
 /**
@@ -404,21 +555,36 @@ if [ ! -f "$THEME_PATH/js/navigation.js" ]; then
             }
         });
         
+        // Fix: Remove event listeners when elements are removed from the DOM
+        // Store event listeners for cleanup
+        var blurListeners = {};
+        
         // Tastatur-Navigation für Untermenüs
         var navLinks = document.querySelectorAll('.site-navigation a');
         
         navLinks.forEach(function(link) {
-            link.addEventListener('focus', function() {
+            var focusHandler = function() {
                 var closestLi = this.closest('li');
                 if (closestLi) {
                     closestLi.classList.add('focus');
-                    
-                    // Bei Verlust des Fokus die Klasse entfernen
-                    link.addEventListener('blur', function() {
-                        closestLi.classList.remove('focus');
-                    });
                 }
-            });
+            };
+            
+            var blurHandler = function() {
+                var closestLi = this.closest('li');
+                if (closestLi) {
+                    closestLi.classList.remove('focus');
+                }
+            };
+            
+            link.addEventListener('focus', focusHandler);
+            link.addEventListener('blur', blurHandler);
+            
+            // Store the event listeners for potential cleanup
+            blurListeners[link] = {
+                focus: focusHandler,
+                blur: blurHandler
+            };
         });
         
         // Scroll-Header-Animation
@@ -431,22 +597,48 @@ if [ ! -f "$THEME_PATH/js/navigation.js" ]; then
                 }
             });
         }
+        
+        // Cleanup function for DOM updates
+        window.cleanupNavigationEvents = function() {
+            for (var link in blurListeners) {
+                if (blurListeners.hasOwnProperty(link) && document.body.contains(link)) {
+                    link.removeEventListener('focus', blurListeners[link].focus);
+                    link.removeEventListener('blur', blurListeners[link].blur);
+                }
+            }
+            blurListeners = {};
+        };
     });
 })();
 EOF
     print_success "Fertig"
 fi
 
+# Kopiere README.md, wenn vorhanden
+if [ -f "$THEME_FILES_DIR/README.md" ]; then
+    copy_file "$THEME_FILES_DIR/README.md" "$THEME_PATH/README.md"
+fi
+
+# Zusammenfassung der Kopieroperationen
+if [ $COPY_ERROR -eq 1 ]; then
+    print_warning "Einige Dateien konnten nicht kopiert werden."
+else
+    print_success "Alle Dateien wurden erfolgreich kopiert."
+fi
+
 # Screenshot erstellen (Platzhalter)
 print_progress "Erstelle Platzhalter für screenshot.png"
 # Erstelle einen einfachen Platzhalter für den Screenshot
-curl -o "$THEME_PATH/screenshot.png" "https://via.placeholder.com/1200x900.png?text=Derleiti+Modern+Theme+v2.6" 2>/dev/null || touch "$THEME_PATH/screenshot.png"
+if ! curl -s -o "$THEME_PATH/screenshot.png" "https://via.placeholder.com/1200x900.png?text=Derleiti+Modern+Theme+v2.6" 2>/dev/null; then
+    print_warning "Konnte keinen Screenshot herunterladen, erstelle leere Datei"
+    touch "$THEME_PATH/screenshot.png"
+fi
 print_success "Fertig"
 
-# Setze Berechtigungen
+# Setze Berechtigungen mit Fehlerbehandlung
 print_progress "Setze Berechtigungen"
-chmod -R 755 "$THEME_PATH"
-find "$THEME_PATH" -type f -exec chmod 644 {} \;
+chmod -R 755 "$THEME_PATH" 2>/dev/null || print_warning "Konnte Berechtigungen für Verzeichnisse nicht setzen"
+find "$THEME_PATH" -type f -exec chmod 644 {} \; 2>/dev/null || print_warning "Konnte Berechtigungen für Dateien nicht setzen"
 print_success "Fertig"
 
 # Wenn Plugin installiert werden soll
@@ -455,24 +647,32 @@ if [[ $INSTALL_PLUGIN == "j" ]]; then
     
     # Plugin-Verzeichnisstruktur erstellen
     print_progress "Erstelle Plugin-Verzeichnisstruktur"
-    mkdir -p "$PLUGIN_PATH"
-    mkdir -p "$PLUGIN_PATH/admin"
-    mkdir -p "$PLUGIN_PATH/admin/css"
-    mkdir -p "$PLUGIN_PATH/admin/js"
-    mkdir -p "$PLUGIN_PATH/admin/views"
-    mkdir -p "$PLUGIN_PATH/includes"
-    mkdir -p "$PLUGIN_PATH/blocks"
-    mkdir -p "$PLUGIN_PATH/blocks/css"
-    mkdir -p "$PLUGIN_PATH/blocks/js"
-    mkdir -p "$PLUGIN_PATH/blocks/img"
-    mkdir -p "$PLUGIN_PATH/templates"
-    mkdir -p "$PLUGIN_PATH/js"
-    mkdir -p "$PLUGIN_PATH/languages"
-    print_success "Fertig"
-    
-    # Erstelle die plugin-main.php Datei
-    print_progress "Erstelle plugin-main.php"
-    cat > "$PLUGIN_PATH/plugin-main.php" << 'EOF'
+    if ! create_directory "$PLUGIN_PATH" ""; then
+        print_error "Fehler beim Erstellen des Plugin-Hauptverzeichnisses."
+        print_error "Plugin-Installation wird übersprungen."
+    else
+        create_directory "$PLUGIN_PATH/admin" ""
+        create_directory "$PLUGIN_PATH/admin/css" ""
+        create_directory "$PLUGIN_PATH/admin/js" ""
+        create_directory "$PLUGIN_PATH/admin/views" ""
+        create_directory "$PLUGIN_PATH/includes" ""
+        create_directory "$PLUGIN_PATH/blocks" ""
+        create_directory "$PLUGIN_PATH/blocks/css" ""
+        create_directory "$PLUGIN_PATH/blocks/js" ""
+        create_directory "$PLUGIN_PATH/blocks/img" ""
+        create_directory "$PLUGIN_PATH/templates" ""
+        create_directory "$PLUGIN_PATH/js" ""
+        create_directory "$PLUGIN_PATH/languages" ""
+        print_success "Fertig"
+        
+        # Erstelle die plugin-main.php Datei
+        print_progress "Erstelle plugin-main.php"
+        if [ -f "$THEME_FILES_DIR/plugin-main.php" ]; then
+            copy_file "$THEME_FILES_DIR/plugin-main.php" "$PLUGIN_PATH/plugin-main.php" && print_success "Fertig"
+        elif [ -f "$SCRIPT_DIR/theme-files/plugin-main.php" ]; then
+            copy_file "$SCRIPT_DIR/theme-files/plugin-main.php" "$PLUGIN_PATH/plugin-main.php" && print_success "Fertig"
+        else
+            cat > "$PLUGIN_PATH/plugin-main.php" << 'EOF'
 <?php
 /**
  * Plugin Name: Derleiti Modern Theme Plugin
@@ -506,12 +706,18 @@ define('DERLEITI_PLUGIN_URL', plugin_dir_url(__FILE__));
 
 // Weitere Inhalte des Plugins...
 EOF
-    print_success "Fertig"
-    
-    # Erstelle Admin-Klasse
-    print_progress "Erstelle Admin-Klasse"
-    mkdir -p "$PLUGIN_PATH/includes"
-    cat > "$PLUGIN_PATH/includes/class-derleiti-admin.php" << 'EOF'
+            print_success "Fertig"
+        fi
+        
+        # Erstelle Admin-Klasse
+        print_progress "Erstelle Admin-Klasse"
+        mkdir -p "$PLUGIN_PATH/includes"
+        if [ -f "$THEME_FILES_DIR/admin-class.php" ]; then
+            copy_file "$THEME_FILES_DIR/admin-class.php" "$PLUGIN_PATH/includes/class-derleiti-admin.php" && print_success "Fertig"
+        elif [ -f "$SCRIPT_DIR/theme-files/admin-class.php" ]; then
+            copy_file "$SCRIPT_DIR/theme-files/admin-class.php" "$PLUGIN_PATH/includes/class-derleiti-admin.php" && print_success "Fertig"
+        else
+            cat > "$PLUGIN_PATH/includes/class-derleiti-admin.php" << 'EOF'
 <?php
 /**
  * Verwaltet alle Admin-Funktionen des Plugins
@@ -568,12 +774,13 @@ class Derleiti_Admin {
     // Weitere Methoden...
 }
 EOF
-    print_success "Fertig"
-    
-    # Erstelle Admin-View-Template
-    print_progress "Erstelle Admin-View-Template"
-    mkdir -p "$PLUGIN_PATH/admin/views"
-    cat > "$PLUGIN_PATH/admin/views/main-page.php" << 'EOF'
+            print_success "Fertig"
+        fi
+        
+        # Erstelle Admin-View-Template
+        print_progress "Erstelle Admin-View-Template"
+        mkdir -p "$PLUGIN_PATH/admin/views"
+        cat > "$PLUGIN_PATH/admin/views/main-page.php" << 'EOF'
 <div class="wrap">
     <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
     
@@ -614,15 +821,16 @@ EOF
     </div>
 </div>
 EOF
-    print_success "Fertig"
-    
-    # Setze Berechtigungen für das Plugin
-    print_progress "Setze Berechtigungen für das Plugin"
-    chmod -R 755 "$PLUGIN_PATH"
-    find "$PLUGIN_PATH" -type f -exec chmod 644 {} \;
-    print_success "Fertig"
-    
-    print_success "Plugin-Installation abgeschlossen!"
+        print_success "Fertig"
+        
+        # Setze Berechtigungen für das Plugin
+        print_progress "Setze Berechtigungen für das Plugin"
+        chmod -R 755 "$PLUGIN_PATH" 2>/dev/null || print_warning "Konnte Berechtigungen für Plugin-Verzeichnisse nicht setzen"
+        find "$PLUGIN_PATH" -type f -exec chmod 644 {} \; 2>/dev/null || print_warning "Konnte Berechtigungen für Plugin-Dateien nicht setzen"
+        print_success "Fertig"
+        
+        print_success "Plugin-Installation abgeschlossen!"
+    fi
 fi
 
 # Abschluss der Installation
@@ -636,7 +844,7 @@ if [ -f "$THEME_PATH/style.css" ] && [ -f "$THEME_PATH/js/navigation.js" ]; then
     echo -e "${YELLOW}Das Theme ist jetzt in $THEME_PATH installiert.${NC}"
     echo -e "${YELLOW}Aktiviere das Theme im WordPress-Admin unter 'Design' > 'Themes'.${NC}"
     
-    if [[ $INSTALL_PLUGIN == "j" ]]; then
+    if [[ $INSTALL_PLUGIN == "j" ]] && [ -d "$PLUGIN_PATH" ]; then
         echo -e "${YELLOW}Das Plugin ist in $PLUGIN_PATH installiert.${NC}"
         echo -e "${YELLOW}Aktiviere das Plugin im WordPress-Admin unter 'Plugins'.${NC}"
     fi
@@ -645,7 +853,7 @@ if [ -f "$THEME_PATH/style.css" ] && [ -f "$THEME_PATH/js/navigation.js" ]; then
     echo -e "\n${BLUE}${BOLD}Nächste Schritte:${NC}"
     echo -e "1. ${CYAN}Melde dich im WordPress-Admin an${NC}"
     echo -e "2. ${CYAN}Aktiviere das Theme${NC}"
-    if [[ $INSTALL_PLUGIN == "j" ]]; then
+    if [[ $INSTALL_PLUGIN == "j" ]] && [ -d "$PLUGIN_PATH" ]; then
         echo -e "3. ${CYAN}Aktiviere das Plugin${NC}"
         echo -e "4. ${CYAN}Konfiguriere die Theme- und Plugin-Einstellungen${NC}"
     else
@@ -657,4 +865,11 @@ else
     echo -e "${RED}        FEHLER BEI DER THEME-INSTALLATION!           ${NC}"
     echo -e "${RED}====================================================${NC}"
     echo -e "${RED}Bitte überprüfe die Fehler oben und versuche es erneut.${NC}"
+    
+    # Liste der fehlenden Dateien
+    echo -e "\n${RED}Fehlende kritische Dateien:${NC}"
+    [ ! -f "$THEME_PATH/style.css" ] && echo -e "${RED}- style.css fehlt${NC}"
+    [ ! -f "$THEME_PATH/js/navigation.js" ] && echo -e "${RED}- js/navigation.js fehlt${NC}"
+    [ ! -f "$THEME_PATH/functions.php" ] && echo -e "${RED}- functions.php fehlt${NC}"
+    [ ! -f "$THEME_PATH/index.php" ] && echo -e "${RED}- index.php fehlt${NC}"
 fi

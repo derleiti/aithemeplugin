@@ -1,0 +1,191 @@
+/**
+ * Derleiti AI Settings Styles
+ */
+.derleiti-ai-settings-page {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Settings Sections */
+.derleiti-ai-settings-page .form-table th {
+    width: 200px;
+    padding: 15px 10px 15px 0;
+}
+
+.derleiti-ai-settings-page .form-table td {
+    padding: 15px 10px;
+}
+
+/* API Key Fields & Toggle Password Button */
+.derleiti-ai-settings-page input[type="password"],
+.derleiti-ai-settings-page input[type="text"].api-key-field {
+    width: 350px;
+    padding: 8px 10px;
+    border-radius: 4px;
+}
+
+.toggle-password {
+    margin-left: 8px !important;
+    vertical-align: middle;
+}
+
+.toggle-password .dashicons {
+    vertical-align: middle;
+    margin-top: -2px;
+}
+
+/* Range Slider */
+.derleiti-range {
+    width: 300px;
+    vertical-align: middle;
+}
+
+.temperature-value {
+    display: inline-block;
+    width: 40px;
+    text-align: center;
+    vertical-align: middle;
+    margin-left: 10px;
+    font-weight: bold;
+}
+
+/* Connection Tester */
+.derleiti-ai-connection-tester {
+    background: #fff;
+    padding: 20px;
+    border-radius: 5px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.07);
+    margin-top: 30px;
+}
+
+.derleiti-ai-provider-tests {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 20px 0;
+}
+
+.test-provider {
+    position: relative;
+}
+
+.test-provider.loading {
+    color: transparent !important;
+}
+
+.test-provider.loading::after {
+    content: "";
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    top: 50%;
+    left: 50%;
+    margin: -9px 0 0 -9px;
+    border: 2px solid rgba(0,0,0,0.1);
+    border-radius: 50%;
+    border-top-color: #2271b1;
+    animation: derleiti-spinner .6s linear infinite;
+}
+
+.derleiti-ai-test-results {
+    margin-top: 20px;
+    background-color: #f9f9f9;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+.derleiti-ai-test-results h3 {
+    margin: 0;
+    padding: 10px 15px;
+    background-color: #f1f1f1;
+    border-bottom: 1px solid #ddd;
+    font-size: 14px;
+}
+
+.derleiti-ai-test-results pre {
+    margin: 0;
+    padding: 15px;
+    font-family: monospace;
+    overflow: auto;
+    max-height: 300px;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
+/* Documentation Section */
+.derleiti-ai-documentation {
+    background: #fff;
+    padding: 20px;
+    border-radius: 5px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.07);
+    margin-top: 30px;
+}
+
+.derleiti-ai-docs-section {
+    margin-bottom: 30px;
+}
+
+.derleiti-ai-docs-section h3 {
+    margin-top: 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eee;
+}
+
+.derleiti-ai-docs-section ul {
+    margin-left: 20px;
+}
+
+.derleiti-ai-docs-section li {
+    margin-bottom: 8px;
+}
+
+/* Success & Error States */
+.test-provider.success {
+    background-color: #edfaef;
+    border-color: #68de7c;
+}
+
+.test-provider.error {
+    background-color: #fcf0f1;
+    border-color: #d63638;
+}
+
+/* Notice Styling */
+#derleiti-ai-settings-notice.success {
+    border-left-color: #46b450;
+}
+
+#derleiti-ai-settings-notice.error {
+    border-left-color: #dc3232;
+}
+
+/* Spinner Animation */
+@keyframes derleiti-spinner {
+    to {transform: rotate(360deg);}
+}
+
+/* Responsive Adjustments */
+@media screen and (max-width: 782px) {
+    .derleiti-ai-settings-page .form-table th {
+        width: 100%;
+        padding-bottom: 0;
+    }
+    
+    .derleiti-ai-settings-page input[type="password"],
+    .derleiti-ai-settings-page input[type="text"].api-key-field {
+        width: 100%;
+    }
+    
+    .derleiti-range {
+        width: 70%;
+    }
+    
+    .derleiti-ai-provider-tests {
+        flex-direction: column;
+    }
+    
+    .test-provider {
+        width: 100%;
+    }
+}

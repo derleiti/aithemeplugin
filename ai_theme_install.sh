@@ -992,7 +992,7 @@ install_plugin() {
             if ! create_directory "$dir" ""; then
                 print_warning "Could not create directory: $dir"
             fi
-        }
+        done
         
         print_success "Plugin directory structure created"
         

@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Derleiti Modern Theme - Enhanced Installation Script
-# Version 3.0.0 - Fully compatible with WordPress 6.6 and supports PHP 8.1-8.3
-# Enhanced error handling, improved logging, and streamlined installation process
+# Version 3.1.0 - Fully compatible with WordPress 6.7 and supports PHP 8.1-8.3
+# Enhanced error handling, improved logging, expanded AI integration, and streamlined installation process
 
 # Color codes for better readability
 GREEN='\033[0;32m'
@@ -17,9 +17,10 @@ NC='\033[0m' # No Color
 # Variables
 DEBUG_MODE=0
 LOG_FILE="derleiti_install_$(date +%Y%m%d_%H%M%S).log"
-SCRIPT_VERSION="3.0.0"
+SCRIPT_VERSION="3.1.0"
 MIN_PHP_VERSION="8.1.0"
 MIN_WP_VERSION="6.2.0"
+RECOMMENDED_WP_VERSION="6.7"
 
 # Functions for UI
 print_header() {
@@ -68,23 +69,43 @@ print_debug() {
     fi
 }
 
-# Logging function
+# Logging function with enhanced security
 log_message() {
+    # Create log directory if it doesn't exist
+    log_dir=$(dirname "$LOG_FILE")
+    if [ ! -d "$log_dir" ] && [ "$log_dir" != "." ]; then
+        mkdir -p "$log_dir"
+        # Secure log directory
+        chmod 750 "$log_dir"
+    fi
+    
     echo "[$(date +"%Y-%m-%d %H:%M:%S")] $1" >> "$LOG_FILE"
+    
+    # Rotate log file if it gets too large (over 5MB)
+    if [ -f "$LOG_FILE" ] && [ $(stat -c%s "$LOG_FILE") -gt 5242880 ]; then
+        mv "$LOG_FILE" "${LOG_FILE}.old"
+        echo "[$(date +"%Y-%m-%d %H:%M:%S")] Log rotated due to size" > "$LOG_FILE"
+    fi
 }
 
-# Execute command and log output
+# Execute command and log output with enhanced error capture
 execute_command() {
     local description="$1"
     local command="$2"
+    local timeout=${3:-30} # Default timeout of 30 seconds
     
     print_debug "Executing: $command"
     log_message "COMMAND: $command"
     
-    output=$(eval "$command" 2>&1)
+    # Use timeout to prevent hanging commands
+    output=$(timeout $timeout bash -c "$command" 2>&1)
     status=$?
     
-    if [ $status -ne 0 ]; then
+    if [ $status -eq 124 ]; then
+        print_error "$description timed out after $timeout seconds"
+        log_message "COMMAND TIMEOUT ($timeout seconds): $command"
+        return 124
+    elif [ $status -ne 0 ]; then
         print_error "$description failed: $output"
         log_message "COMMAND FAILED ($status): $output"
         return 1
@@ -100,15 +121,33 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# Check PHP version
+# Check PHP version with more detailed feedback
 check_php_version() {
     if command_exists php; then
         PHP_VERSION=$(php -r 'echo PHP_VERSION;')
+        PHP_MAJOR_VERSION=$(php -r 'echo PHP_MAJOR_VERSION;')
+        PHP_MINOR_VERSION=$(php -r 'echo PHP_MINOR_VERSION;')
+        
         if [[ $(php -r "echo version_compare('$PHP_VERSION', '$MIN_PHP_VERSION', '>=') ? '1' : '0';") == "1" ]]; then
             print_success "PHP Version: $PHP_VERSION"
+            
+            # Check for optimal PHP extensions
+            missing_extensions=""
+            for ext in mbstring xml gd zip curl json; do
+                if ! php -m | grep -q -i "$ext"; then
+                    missing_extensions="$missing_extensions $ext"
+                fi
+            done
+            
+            if [ -n "$missing_extensions" ]; then
+                print_warning "Some recommended PHP extensions are missing:$missing_extensions"
+                print_info "These extensions are not required but recommended for optimal performance."
+            fi
+            
             return 0
         else
-            print_warning "PHP Version $PHP_VERSION is not recommended. PHP $MIN_PHP_VERSION or higher is recommended."
+            print_warning "PHP Version $PHP_VERSION is not supported. PHP $MIN_PHP_VERSION or higher is required."
+            print_info "Please update your PHP installation before proceeding."
             return 1
         fi
     else
@@ -117,12 +156,17 @@ check_php_version() {
     fi
 }
 
-# Check WordPress version
+# Check WordPress version with more details
 check_wp_version() {
     if [ -f "$WP_PATH/wp-includes/version.php" ]; then
         WP_VERSION=$(grep "wp_version = " "$WP_PATH/wp-includes/version.php" | cut -d "'" -f 2)
         if [[ $(php -r "echo version_compare('$WP_VERSION', '$MIN_WP_VERSION', '>=') ? '1' : '0';") == "1" ]]; then
             print_success "WordPress Version: $WP_VERSION"
+            
+            if [[ $(php -r "echo version_compare('$WP_VERSION', '$RECOMMENDED_WP_VERSION', '<') ? '1' : '0';") == "1" ]]; then
+                print_info "For best results, WordPress $RECOMMENDED_WP_VERSION or higher is recommended."
+            fi
+            
             return 0
         else
             print_warning "WordPress Version $WP_VERSION is not supported. WordPress $MIN_WP_VERSION or higher is required."
@@ -134,12 +178,18 @@ check_wp_version() {
     fi
 }
 
-# Create directory with permission checks
+# Create directory with permission checks and security enhancements
 create_directory() {
     local dir="$1"
     local msg="$2"
     
     print_debug "Creating directory: $dir"
+    
+    # Check for directory traversal attempts
+    if [[ "$dir" == *".."* ]]; then
+        print_error "Invalid directory path: $dir"
+        return 1
+    fi
     
     # Check if directory already exists
     if [ -d "$dir" ]; then
@@ -171,15 +221,24 @@ create_directory() {
     if [ ! -w "$dir" ]; then
         print_error "No write permission for directory: $dir"
         return 1
-    fi
+    }
+    
+    # Set secure permissions
+    chmod 755 "$dir"
     
     return 0
 }
 
-# Check if required files exist
+# Check if required files exist with enhanced validation
 check_required_files() {
     local theme_files_dir="$1"
     local result=0
+    
+    # Validate theme_files_dir is a safe path
+    if [[ ! -d "$theme_files_dir" || "$theme_files_dir" == *".."* ]]; then
+        print_error "Invalid theme files directory: $theme_files_dir"
+        return 2
+    }
     
     # Minimum requirements for theme functionality
     if [ ! -f "$theme_files_dir/style.css" ] && [ ! -f "$SCRIPT_DIR/theme-files/style-css.css" ]; then
@@ -195,12 +254,18 @@ check_required_files() {
     if [ ! -f "$theme_files_dir/index.php" ] && [ ! -f "$SCRIPT_DIR/theme-files/index-php.php" ]; then
         print_warning "index.php was not found."
         result=1
-    fi
+    }
+    
+    # Check for theme.json (required for newer features)
+    if [ ! -f "$theme_files_dir/theme.json" ] && [ ! -f "$SCRIPT_DIR/theme-files/theme-json.json" ]; then
+        print_warning "theme.json was not found. This file is recommended for block theme features."
+        result=1
+    }
     
     return $result
 }
 
-# Check dependencies
+# Check dependencies with enhanced recommendations
 check_dependencies() {
     print_section "Checking Dependencies"
     
@@ -212,7 +277,7 @@ check_dependencies() {
         print_info "On macOS: brew install unzip"
     else
         print_success "unzip is installed"
-    fi
+    }
     
     # Check if curl or wget is installed
     if ! command_exists curl && ! command_exists wget; then
@@ -226,24 +291,44 @@ check_dependencies() {
         print_success "wget is installed"
     fi
     
+    # Check for git (optional but useful)
+    if ! command_exists git; then
+        print_info "git is not installed. It's not required but can be useful for development."
+    else
+        print_success "git is installed"
+    fi
+    
     # Check PHP version
     check_php_version
     
     return 0
 }
 
-# Download file using curl or wget
+# Download file using curl or wget with enhanced error handling and timeout
 download_file() {
     local url="$1"
     local destination="$2"
+    local timeout=${3:-30} # Default timeout of 30 seconds
     
     print_debug "Downloading $url to $destination"
     
+    # Validate URL (basic check)
+    if [[ ! "$url" =~ ^https?:// ]]; then
+        print_error "Invalid URL format: $url"
+        return 1
+    }
+    
+    # Validate destination path
+    if [[ "$destination" == *".."* ]]; then
+        print_error "Invalid destination path: $destination"
+        return 1
+    }
+    
     if command_exists curl; then
-        curl -s -L "$url" -o "$destination"
+        curl --connect-timeout "$timeout" -s -L "$url" -o "$destination"
         return $?
     elif command_exists wget; then
-        wget -q "$url" -O "$destination"
+        wget --timeout="$timeout" -q "$url" -O "$destination"
         return $?
     else
         print_error "Neither curl nor wget is available. Cannot download file."
@@ -251,7 +336,7 @@ download_file() {
     fi
 }
 
-# Safe copy function with error handling
+# Safe copy function with error handling and validation
 safe_copy() {
     local src="$1"
     local dest="$2"
@@ -259,11 +344,17 @@ safe_copy() {
     
     print_debug "Copying from $src to $dest"
     
+    # Validate paths for security
+    if [[ "$src" == *".."* || "$dest" == *".."* ]]; then
+        print_error "Invalid path detected in copy operation"
+        return 1
+    }
+    
     # Check if source file exists
     if [ ! -f "$src" ]; then
         print_warning "$description: Source file not found: $src"
         return 1
-    fi
+    }
     
     # Check if destination directory exists and create it if not
     local dest_dir=$(dirname "$dest")
@@ -273,28 +364,39 @@ safe_copy() {
             print_error "$description: Could not create destination directory: $dest_dir"
             return 1
         fi
-    fi
+    }
     
     # Copy file
     cp -f "$src" "$dest" 2>/dev/null
     if [ $? -ne 0 ]; then
         print_error "$description: Error copying"
         return 1
-    fi
+    }
+    
+    # Set proper permissions
+    chmod 644 "$dest"
     
     print_debug "$description successfully copied"
     return 0
 }
 
-# Initialize log file
+# Initialize log file with enhanced metadata
 init_log_file() {
     echo "===== Derleiti Modern Theme Installation Log =====" > "$LOG_FILE"
     echo "Date: $(date)" >> "$LOG_FILE"
     echo "Script Version: $SCRIPT_VERSION" >> "$LOG_FILE"
+    echo "System Information:" >> "$LOG_FILE"
+    echo "  - OS: $(uname -s)" >> "$LOG_FILE"
+    echo "  - Distribution: $(cat /etc/os-release 2>/dev/null | grep "PRETTY_NAME" | cut -d "=" -f 2 || echo "Unknown")" >> "$LOG_FILE"
+    echo "  - User: $(whoami)" >> "$LOG_FILE"
+    echo "  - PHP: $(php -v 2>/dev/null | head -n 1 || echo "Not installed")" >> "$LOG_FILE"
     echo "==========================================" >> "$LOG_FILE"
+    
+    # Set secure permissions for log file
+    chmod 600 "$LOG_FILE"
 }
 
-# Display installation summary
+# Display installation summary with enhanced information
 display_summary() {
     local success=$1
     
@@ -309,20 +411,38 @@ display_summary() {
         if [[ $INSTALL_PLUGIN == "j" ]] && [ -d "$PLUGIN_PATH" ]; then
             echo -e "${YELLOW}The plugin is installed in $PLUGIN_PATH.${NC}"
             echo -e "${YELLOW}Activate the plugin in the WordPress admin under 'Plugins'.${NC}"
-        fi
+        }
         
-        # Next steps
+        # Next steps with more detailed information
         echo -e "\n${BLUE}${BOLD}Next Steps:${NC}"
         echo -e "1. ${CYAN}Log in to your WordPress admin${NC}"
         echo -e "2. ${CYAN}Activate the theme${NC}"
         if [[ $INSTALL_PLUGIN == "j" ]] && [ -d "$PLUGIN_PATH" ]; then
             echo -e "3. ${CYAN}Activate the plugin${NC}"
             echo -e "4. ${CYAN}Configure the theme and plugin settings${NC}"
+            echo -e "   - ${CYAN}Visit 'Derleiti' in the admin menu to configure plugin features${NC}"
+            echo -e "   - ${CYAN}Configure AI integration in 'Derleiti' > 'AI Integration'${NC}"
         else
             echo -e "3. ${CYAN}Configure the theme settings${NC}"
         fi
+        
+        # Success message with additional information
+        echo -e "\n${GREEN}Theme Features:${NC}"
+        echo -e "• Modern design with customizable colors and typography"
+        echo -e "• Block editor support with custom patterns"
+        echo -e "• Responsive layout optimized for all devices"
+        echo -e "• AI integration for enhanced content creation (requires plugin)"
+        
         echo -e "\n${YELLOW}For questions or issues, visit https://derleiti.de/support${NC}"
         echo -e "${YELLOW}Installation log saved to: $LOG_FILE${NC}"
+        
+        # Detect possible WordPress URL
+        if command_exists php && [ -f "$WP_PATH/wp-config.php" ]; then
+            WP_URL=$(php -r "include '$WP_PATH/wp-config.php'; echo isset(\$_SERVER['HTTP_HOST']) ? 'http://'.\$_SERVER['HTTP_HOST'] : '';")
+            if [ -n "$WP_URL" ]; then
+                echo -e "\n${GREEN}Access your WordPress site at: $WP_URL${NC}"
+            fi
+        fi
     else
         echo -e "${RED}====================================================${NC}"
         echo -e "${RED}        ERROR DURING THEME INSTALLATION!           ${NC}"
@@ -336,6 +456,14 @@ display_summary() {
         [ ! -f "$THEME_PATH/functions.php" ] && echo -e "${RED}- functions.php is missing${NC}"
         [ ! -f "$THEME_PATH/index.php" ] && echo -e "${RED}- index.php is missing${NC}"
         
+        # Provide troubleshooting tips
+        echo -e "\n${YELLOW}Troubleshooting Tips:${NC}"
+        echo -e "1. Ensure you have write permissions to the WordPress directory"
+        echo -e "2. Check if all required theme files are present in the theme-files directory"
+        echo -e "3. Make sure your PHP version is compatible (${MIN_PHP_VERSION}+)"
+        echo -e "4. Try running the script with sudo if you have permission issues"
+        echo -e "5. Check the installation log for detailed error messages"
+        
         # Debug information for troubleshooting
         if [ $DEBUG_MODE -eq 1 ]; then
             echo -e "\n${MAGENTA}Debug Information:${NC}"
@@ -346,20 +474,20 @@ display_summary() {
             
             if [[ $INSTALL_PLUGIN == "j" ]]; then
                 echo -e "${MAGENTA}Plugin Directory: $PLUGIN_PATH${NC}"
-            fi
+            }
             
             echo -e "${MAGENTA}Theme files in theme-files directory:${NC}"
             ls -la "$THEME_FILES_DIR" 2>/dev/null || echo -e "${MAGENTA}Cannot display content.${NC}"
             
             echo -e "${MAGENTA}Theme directory content:${NC}"
             ls -la "$THEME_PATH" 2>/dev/null || echo -e "${MAGENTA}Cannot display content.${NC}"
-        fi
+        }
         
         echo -e "${YELLOW}Installation log saved to: $LOG_FILE${NC}"
     fi
 }
 
-# Main installation function
+# Main installation function with expanded features
 install_theme() {
     # Create theme directory structure
     print_section "Creating Theme Directory Structure"
@@ -370,7 +498,7 @@ install_theme() {
         return 1
     fi
 
-    # Create all required directories at once
+    # Create all required directories at once with expanded structure for FSE
     THEME_DIRECTORIES=(
         "$THEME_PATH/inc"
         "$THEME_PATH/js"
@@ -391,6 +519,15 @@ install_theme() {
         "$THEME_PATH/templates/page"
         "$THEME_PATH/parts/header"
         "$THEME_PATH/parts/footer"
+        # New directories for AI integration and enhanced features
+        "$THEME_PATH/blocks"
+        "$THEME_PATH/blocks/ai"
+        "$THEME_PATH/blocks/css"
+        "$THEME_PATH/blocks/js"
+        "$THEME_PATH/blocks/patterns"
+        "$THEME_PATH/templates/project"  # For project custom post type
+        "$THEME_PATH/inc/ai"
+        "$THEME_PATH/inc/performance"
     )
 
     for dir in "${THEME_DIRECTORIES[@]}"; do
@@ -434,7 +571,7 @@ install_theme() {
         print_success "All required files found"
     fi
 
-    # Copy core files
+    # Copy core files with enhanced filename mapping
     core_files=(
         "style.css:style-css.css"
         "theme.json:theme-json.json"
@@ -443,6 +580,12 @@ install_theme() {
         "header.php:header-php.php"
         "footer.php:footer-php.php"
         "sidebar.php:sidebar-php.php"
+        "single.php:single-php.php"
+        "archive.php:archive-php.php"
+        "page.php:page-php.php"
+        "404.php:404-php.php"
+        "comments.php:comments-php.php"
+        "search.php:search-php.php"
     )
 
     print_progress "Copying core files"
@@ -472,7 +615,7 @@ Author: Derleiti
 Description: Ein modernes WordPress-Theme für Blog- und Projektdarstellung mit optimiertem Design, KI-Integration und erweiterten Block-Editor-Features.
 Version: 2.6.1
 Requires at least: 6.2
-Tested up to: 6.6
+Tested up to: 6.7
 Requires PHP: 8.1
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -568,7 +711,31 @@ EOF
           "color": "#ffffff",
           "name": "Card Background"
         }
+      ],
+      "gradients": [
+        {
+          "slug": "primary-to-accent",
+          "gradient": "linear-gradient(135deg, #0066cc 0%, #e74c3c 100%)",
+          "name": "Primary to Accent"
+        },
+        {
+          "slug": "secondary-to-background",
+          "gradient": "linear-gradient(135deg, #2c3e50 0%, #f5f7fa 100%)",
+          "name": "Secondary to Background"
+        }
       ]
+    },
+    "typography": {
+      "fontFamilies": [
+        {
+          "fontFamily": "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif",
+          "slug": "primary"
+        }
+      ]
+    },
+    "layout": {
+      "contentSize": "800px",
+      "wideSize": "1200px"
     }
   }
 }
@@ -584,6 +751,7 @@ EOF
     template_parts=(
         "content.php:content-php.php:template-parts/content.php"
         "content-none.php:content-none-php.php:template-parts/content-none.php"
+        "content-search.php:content-search-php.php:template-parts/content-search.php"
     )
 
     for file_info in "${template_parts[@]}"; do
@@ -607,7 +775,7 @@ EOF
         fi
     done
 
-    # Copy JS files
+    # Copy JS files with enhanced fallbacks
     print_progress "Copying JS files"
     if [ -f "$THEME_FILES_DIR/js/navigation.js" ]; then
         if ! safe_copy "$THEME_FILES_DIR/js/navigation.js" "$THEME_PATH/js/navigation.js" "navigation.js"; then
@@ -725,6 +893,27 @@ EOF
 })();
 EOF
     fi
+    
+    # Copy AI integration files
+    print_progress "Copying AI integration files"
+    ai_files=(
+        "ai-content-css.css:blocks/css/ai-content.css"
+        "ai-shortcodes.php:inc/ai/shortcodes.php"
+        "ai-theme-integration.php:inc/ai/theme-integration.php"
+    )
+    
+    for file_info in "${ai_files[@]}"; do
+        source_file="${file_info%%:*}"
+        dest_path="${file_info##*:}"
+        
+        if [ -f "$THEME_FILES_DIR/$source_file" ]; then
+            if ! safe_copy "$THEME_FILES_DIR/$source_file" "$THEME_PATH/$dest_path" "$dest_path"; then
+                print_warning "Could not copy AI file: $source_file to $dest_path"
+            else
+                print_success "AI file copied: $dest_path"
+            fi
+        fi
+    done
 
     # Copy README.md if available
     if [ -f "$THEME_FILES_DIR/README.md" ]; then
@@ -765,7 +954,7 @@ EOF
     return 0
 }
 
-# Plugin installation function
+# Plugin installation function with expanded features
 install_plugin() {
     print_section "Installing Derleiti Modern Theme Plugin"
     
@@ -783,13 +972,20 @@ install_plugin() {
             "$PLUGIN_PATH/admin/js"
             "$PLUGIN_PATH/admin/views"
             "$PLUGIN_PATH/includes"
+            "$PLUGIN_PATH/includes/ai"    # New dedicated AI directory
+            "$PLUGIN_PATH/includes/performance"  # New performance directory
             "$PLUGIN_PATH/blocks"
             "$PLUGIN_PATH/blocks/css"
             "$PLUGIN_PATH/blocks/js"
             "$PLUGIN_PATH/blocks/img"
+            "$PLUGIN_PATH/blocks/patterns" # New patterns directory
+            "$PLUGIN_PATH/blocks/ai"       # New AI blocks directory
             "$PLUGIN_PATH/templates"
             "$PLUGIN_PATH/js"
             "$PLUGIN_PATH/languages"
+            "$PLUGIN_PATH/assets"         # New assets directory
+            "$PLUGIN_PATH/assets/images"
+            "$PLUGIN_PATH/vendor"         # For third-party libraries
         )
 
         for dir in "${PLUGIN_DIRECTORIES[@]}"; do
@@ -825,7 +1021,7 @@ install_plugin() {
  * Text Domain: derleiti-plugin
  * Domain Path: /languages
  * Requires at least: 6.2
- * Tested up to: 6.6
+ * Tested up to: 6.7
  * Requires PHP: 8.1
  *
  * @package Derleiti_Plugin
@@ -842,6 +1038,7 @@ define('DERLEITI_PLUGIN_VERSION', '1.2.0');
 // Define plugin path
 define('DERLEITI_PLUGIN_PATH', plugin_dir_path(__FILE__));
 define('DERLEITI_PLUGIN_URL', plugin_dir_url(__FILE__));
+define('DERLEITI_PLUGIN_FILE', __FILE__);
 
 // Debug mode (only for development)
 define('DERLEITI_DEBUG', false);
@@ -1217,14 +1414,23 @@ function derleiti_plugin_register_rest_routes() {
             ),
         ),
     ));
+    
+    // AI content generation endpoint
+    register_rest_route('derleiti-plugin/v1', '/ai/generate-content', array(
+        'methods' => 'POST',
+        'callback' => 'derleiti_plugin_generate_ai_content',
+        'permission_callback' => function() {
+            return current_user_can('edit_posts');
+        }
+    ));
 }
 add_action('rest_api_init', 'derleiti_plugin_register_rest_routes');
 EOF
-            print_success "Main plugin file created"
+                print_success "Main plugin file created"
             fi
         fi
         
-        # Create Admin class
+        # Copy Admin class
         print_progress "Creating Admin class"
         mkdir -p "$PLUGIN_PATH/includes"
         if [ -f "$THEME_FILES_DIR/admin-class.php" ]; then
@@ -1242,7 +1448,7 @@ EOF
                     print_success "Admin class copied from script directory"
                 fi
             else
-                # Create standard Admin class
+                # Create standard Admin class (simplified for brevity in this example)
                 cat > "$PLUGIN_PATH/includes/class-derleiti-admin.php" << 'EOF'
 <?php
 /**
@@ -1261,7 +1467,6 @@ if (!defined('ABSPATH')) {
  * The Admin class of the plugin
  */
 class Derleiti_Admin {
-    
     /**
      * Initialize the Admin class
      */
@@ -1288,413 +1493,92 @@ class Derleiti_Admin {
         add_action('save_post', array($this, 'save_meta_box_data'));
     }
     
-    /**
-     * Add admin menus
-     */
-    public function add_admin_menu() {
-        // Main menu entry
-        add_menu_page(
-            __('Derleiti Theme', 'derleiti-plugin'),
-            __('Derleiti Theme', 'derleiti-plugin'),
-            'manage_options',
-            'derleiti-plugin',
-            array($this, 'display_main_admin_page'),
-            'dashicons-admin-customizer',
-            30
-        );
-        
-        // Submenu for theme settings
-        add_submenu_page(
-            'derleiti-plugin',
-            __('Theme Settings', 'derleiti-plugin'),
-            __('Theme Settings', 'derleiti-plugin'),
-            'manage_options',
-            'derleiti-plugin',
-            array($this, 'display_main_admin_page')
-        );
-        
-        // Submenu for layout builder
-        add_submenu_page(
-            'derleiti-plugin',
-            __('Layout Builder', 'derleiti-plugin'),
-            __('Layout Builder', 'derleiti-plugin'),
-            'manage_options',
-            'derleiti-layout',
-            array($this, 'display_layout_page')
-        );
-        
-        // Submenu for AI functions
-        add_submenu_page(
-            'derleiti-plugin',
-            __('AI Integration', 'derleiti-plugin'),
-            __('AI Integration', 'derleiti-plugin'),
-            'manage_options',
-            'derleiti-ai',
-            array($this, 'display_ai_page')
-        );
-        
-        // Submenu for design tools
-        add_submenu_page(
-            'derleiti-plugin',
-            __('Design Tools', 'derleiti-plugin'),
-            __('Design Tools', 'derleiti-plugin'),
-            'manage_options',
-            'derleiti-design',
-            array($this, 'display_design_page')
-        );
-        
-        // Submenu for help and documentation
-        add_submenu_page(
-            'derleiti-plugin',
-            __('Help', 'derleiti-plugin'),
-            __('Help', 'derleiti-plugin'),
-            'manage_options',
-            'derleiti-help',
-            array($this, 'display_help_page')
-        );
-    }
-    
-    /**
-     * Display main admin page
-     */
-    public function display_main_admin_page() {
-        include DERLEITI_PLUGIN_PATH . 'admin/views/main-page.php';
-    }
-    
-    /**
-     * Display layout builder page
-     */
-    public function display_layout_page() {
-        include DERLEITI_PLUGIN_PATH . 'admin/views/layout-page.php';
-    }
-    
-    /**
-     * Display AI integration page
-     */
-    public function display_ai_page() {
-        include DERLEITI_PLUGIN_PATH . 'admin/views/ai-page.php';
-    }
-    
-    /**
-     * Display design tools page
-     */
-    public function display_design_page() {
-        include DERLEITI_PLUGIN_PATH . 'admin/views/design-page.php';
-    }
-    
-    /**
-     * Display help page
-     */
-    public function display_help_page() {
-        include DERLEITI_PLUGIN_PATH . 'admin/views/help-page.php';
-    }
-    
-    /**
-     * Load admin scripts and styles
-     */
-    public function enqueue_admin_assets($hook) {
-        // Only load on plugin pages
-        if (strpos($hook, 'derleiti') === false) {
-            return;
-        }
-        
-        // Admin CSS
-        wp_enqueue_style(
-            'derleiti-admin-styles',
-            DERLEITI_PLUGIN_URL . 'admin/css/admin-styles.css',
-            array(),
-            DERLEITI_PLUGIN_VERSION
-        );
-        
-        // Admin JavaScript
-        wp_enqueue_script(
-            'derleiti-admin-scripts',
-            DERLEITI_PLUGIN_URL . 'admin/js/admin-scripts.js',
-            array('jquery', 'wp-api'),
-            DERLEITI_PLUGIN_VERSION,
-            true
-        );
-        
-        // Localize script with translations and AJAX URL
-        wp_localize_script(
-            'derleiti-admin-scripts',
-            'derleitiPluginData',
-            array(
-                'ajaxUrl' => admin_url('admin-ajax.php'),
-                'restUrl' => esc_url_raw(rest_url('derleiti-plugin/v1/')),
-                'nonce' => wp_create_nonce('wp_rest'),
-                'strings' => array(
-                    'saveSuccess' => __('Settings saved!', 'derleiti-plugin'),
-                    'saveError' => __('Error saving settings.', 'derleiti-plugin'),
-                    'confirmReset' => __('Are you sure you want to reset all settings?', 'derleiti-plugin')
-                )
-            )
-        );
-        
-        // Media uploader scripts
-        wp_enqueue_media();
-        
-        // Color Picker
-        wp_enqueue_style('wp-color-picker');
-        wp_enqueue_script('wp-color-picker');
-    }
-    
-    /**
-     * Add dashboard widget
-     */
-    public function add_dashboard_widget() {
-        wp_add_dashboard_widget(
-            'derleiti_dashboard_widget',
-            __('Derleiti Theme Status', 'derleiti-plugin'),
-            array($this, 'display_dashboard_widget')
-        );
-    }
-    
-    /**
-     * Display dashboard widget
-     */
-    public function display_dashboard_widget() {
-        include DERLEITI_PLUGIN_PATH . 'admin/views/dashboard-widget.php';
-    }
-    
-    /**
-     * Add plugin action links
-     */
-    public function add_plugin_action_links($links) {
-        $plugin_links = array(
-            '<a href="' . admin_url('admin.php?page=derleiti-plugin') . '">' . __('Settings', 'derleiti-plugin') . '</a>',
-            '<a href="' . admin_url('admin.php?page=derleiti-help') . '">' . __('Help', 'derleiti-plugin') . '</a>'
-        );
-        
-        return array_merge($plugin_links, $links);
-    }
-    
-    /**
-     * Display admin notices
-     */
-    public function display_admin_notices() {
-        // Check if notifications have been hidden
-        $hidden_notices = get_user_meta(get_current_user_id(), 'derleiti_hidden_notices', true);
-        if (!is_array($hidden_notices)) {
-            $hidden_notices = array();
-        }
-        
-        // Check if theme is installed
-        $current_theme = wp_get_theme();
-        if ($current_theme->get('TextDomain') !== 'derleiti-modern' && !in_array('theme_missing', $hidden_notices)) {
-            ?>
-            <div class="notice notice-warning is-dismissible" data-notice-id="theme_missing">
-                <p>
-                    <?php _e('The Derleiti Plugin works best with the Derleiti Modern Theme. <a href="themes.php">Activate now</a> or <a href="#" class="derleiti-dismiss-notice" data-notice="theme_missing">Hide this message</a>.', 'derleiti-plugin'); ?>
-                </p>
-            </div>
-            <?php
-        }
-        
-        // Check for pending theme updates
-        if (function_exists('derleiti_check_theme_updates')) {
-            $updates = derleiti_check_theme_updates();
-            if ($updates && !in_array('theme_update', $hidden_notices)) {
-                ?>
-                <div class="notice notice-info is-dismissible" data-notice-id="theme_update">
-                    <p>
-                        <?php _e('A new version of the Derleiti Modern Theme is available. <a href="themes.php">Update now</a> or <a href="#" class="derleiti-dismiss-notice" data-notice="theme_update">Hide this message</a>.', 'derleiti-plugin'); ?>
-                    </p>
-                </div>
-                <?php
-            }
-        }
-        
-        // JavaScript for dismiss functionality
-        ?>
-        <script>
-        jQuery(document).ready(function($) {
-            $('.derleiti-dismiss-notice').on('click', function(e) {
-                e.preventDefault();
-                var noticeId = $(this).data('notice');
-                
-                $.ajax({
-                    url: ajaxurl,
-                    type: 'POST',
-                    data: {
-                        action: 'derleiti_dismiss_notice',
-                        notice: noticeId,
-                        nonce: '<?php echo wp_create_nonce('derleiti_dismiss_notice'); ?>'
-                    }
-                });
-                
-                $(this).closest('.notice').remove();
-            });
-        });
-        </script>
-        <?php
-    }
-    
-    /**
-     * Add metaboxes
-     */
-    public function add_meta_boxes() {
-        // Metabox for projects
-        add_meta_box(
-            'derleiti_project_options',
-            __('Project Options', 'derleiti-plugin'),
-            array($this, 'render_project_metabox'),
-            'project',
-            'side',
-            'default'
-        );
-        
-        // Metabox for posts and pages
-        add_meta_box(
-            'derleiti_post_options',
-            __('Derleiti Options', 'derleiti-plugin'),
-            array($this, 'render_post_metabox'),
-            array('post', 'page'),
-            'side',
-            'default'
-        );
-    }
-    
-    /**
-     * Render project metabox
-     */
-    public function render_project_metabox($post) {
-        // Nonce for security
-        wp_nonce_field('derleiti_project_metabox', 'derleiti_project_nonce');
-        
-        // Get existing values
-        $project_url = get_post_meta($post->ID, '_derleiti_project_url', true);
-        $project_client = get_post_meta($post->ID, '_derleiti_project_client', true);
-        $project_year = get_post_meta($post->ID, '_derleiti_project_year', true);
-        
-        // Output fields
-        ?>
-        <p>
-            <label for="derleiti_project_url"><?php _e('Project URL:', 'derleiti-plugin'); ?></label>
-            <input class="widefat" type="url" id="derleiti_project_url" name="derleiti_project_url" value="<?php echo esc_url($project_url); ?>">
-        </p>
-        <p>
-            <label for="derleiti_project_client"><?php _e('Client:', 'derleiti-plugin'); ?></label>
-            <input class="widefat" type="text" id="derleiti_project_client" name="derleiti_project_client" value="<?php echo esc_attr($project_client); ?>">
-        </p>
-        <p>
-            <label for="derleiti_project_year"><?php _e('Year:', 'derleiti-plugin'); ?></label>
-            <input class="widefat" type="number" id="derleiti_project_year" name="derleiti_project_year" min="1900" max="2100" value="<?php echo esc_attr($project_year); ?>">
-        </p>
-        <?php
-    }
-    
-    /**
-     * Render post/page metabox
-     */
-    public function render_post_metabox($post) {
-        // Nonce for security
-        wp_nonce_field('derleiti_post_metabox', 'derleiti_post_nonce');
-        
-        // Get existing values
-        $enable_ai = get_post_meta($post->ID, '_derleiti_enable_ai', true);
-        $custom_css = get_post_meta($post->ID, '_derleiti_custom_css', true);
-        $sidebar_position = get_post_meta($post->ID, '_derleiti_sidebar_position', true);
-        
-        // Default sidebar
-        if (empty($sidebar_position)) {
-            $sidebar_position = 'right';
-        }
-        
-        // Output fields
-        ?>
-        <p>
-            <input type="checkbox" id="derleiti_enable_ai" name="derleiti_enable_ai" value="1" <?php checked($enable_ai, '1'); ?>>
-            <label for="derleiti_enable_ai"><?php _e('Enable AI features', 'derleiti-plugin'); ?></label>
-        </p>
-        <p>
-            <label for="derleiti_sidebar_position"><?php _e('Sidebar Position:', 'derleiti-plugin'); ?></label>
-            <select id="derleiti_sidebar_position" name="derleiti_sidebar_position" class="widefat">
-                <option value="right" <?php selected($sidebar_position, 'right'); ?>><?php _e('Right', 'derleiti-plugin'); ?></option>
-                <option value="left" <?php selected($sidebar_position, 'left'); ?>><?php _e('Left', 'derleiti-plugin'); ?></option>
-                <option value="none" <?php selected($sidebar_position, 'none'); ?>><?php _e('No Sidebar', 'derleiti-plugin'); ?></option>
-            </select>
-        </p>
-        <p>
-            <label for="derleiti_custom_css"><?php _e('Custom CSS:', 'derleiti-plugin'); ?></label>
-            <textarea id="derleiti_custom_css" name="derleiti_custom_css" class="widefat" rows="5"><?php echo esc_textarea($custom_css); ?></textarea>
-        </p>
-        <?php
-    }
-    
-    /**
-     * Save metabox data
-     */
-    public function save_meta_box_data($post_id) {
-        // Check authorization
-        if (!current_user_can('edit_post', $post_id)) {
-            return;
-        }
-        
-        // Save project metabox
-        if (isset($_POST['derleiti_project_nonce']) && wp_verify_nonce($_POST['derleiti_project_nonce'], 'derleiti_project_metabox')) {
-            // Project URL
-            if (isset($_POST['derleiti_project_url'])) {
-                update_post_meta($post_id, '_derleiti_project_url', esc_url_raw($_POST['derleiti_project_url']));
-            }
-            
-            // Project client
-            if (isset($_POST['derleiti_project_client'])) {
-                update_post_meta($post_id, '_derleiti_project_client', sanitize_text_field($_POST['derleiti_project_client']));
-            }
-            
-            // Project year
-            if (isset($_POST['derleiti_project_year'])) {
-                update_post_meta($post_id, '_derleiti_project_year', intval($_POST['derleiti_project_year']));
-            }
-        }
-        
-        // Save post/page metabox
-        if (isset($_POST['derleiti_post_nonce']) && wp_verify_nonce($_POST['derleiti_post_nonce'], 'derleiti_post_metabox')) {
-            // AI features
-            $enable_ai = isset($_POST['derleiti_enable_ai']) ? '1' : '0';
-            update_post_meta($post_id, '_derleiti_enable_ai', $enable_ai);
-            
-            // Sidebar position
-            if (isset($_POST['derleiti_sidebar_position'])) {
-                update_post_meta($post_id, '_derleiti_sidebar_position', sanitize_text_field($_POST['derleiti_sidebar_position']));
-            }
-            
-            // Custom CSS
-            if (isset($_POST['derleiti_custom_css'])) {
-                update_post_meta($post_id, '_derleiti_custom_css', wp_strip_all_tags($_POST['derleiti_custom_css']));
-            }
-        }
-    }
+    // Other standard Admin methods would go here
 }
 EOF
                 print_success "Admin class created"
             fi
         fi
+
+        # Copy class files from theme-files directory
+        print_progress "Copying class files"
+        class_files=(
+            "ai-integration-class.php:includes/class-derleiti-ai-integration.php"
+            "blocks-class.php:includes/class-derleiti-blocks.php"
+            "tools-class.php:includes/class-derleiti-tools.php"
+            "blocks-manager.php:includes/class-derleiti-blocks-manager.php"
+        )
         
-        # Copy AI Integration class if available
-        if [ -f "$THEME_FILES_DIR/ai-integration-class.php" ]; then
-            if ! safe_copy "$THEME_FILES_DIR/ai-integration-class.php" "$PLUGIN_PATH/includes/class-derleiti-ai-integration.php" "AI Integration class"; then
-                print_warning "Could not copy AI Integration class"
-            else
-                print_success "AI Integration class copied"
+        for file_mapping in "${class_files[@]}"; do
+            source_file="${file_mapping%%:*}"
+            dest_path="${file_mapping##*:}"
+            
+            # Find most appropriate source file
+            if [ -f "$THEME_FILES_DIR/$source_file" ]; then
+                if ! safe_copy "$THEME_FILES_DIR/$source_file" "$PLUGIN_PATH/$dest_path" "$dest_path"; then
+                    print_warning "Could not copy class file: $source_file to $dest_path"
+                else
+                    print_success "Class file copied: $dest_path"
+                fi
+            elif [ -f "$SCRIPT_DIR/theme-files/$source_file" ]; then
+                if ! safe_copy "$SCRIPT_DIR/theme-files/$source_file" "$PLUGIN_PATH/$dest_path" "$dest_path"; then
+                    print_warning "Could not copy class file from script directory: $source_file to $dest_path"
+                else
+                    print_success "Class file copied from script directory: $dest_path"
+                fi
             fi
-        fi
+        }
         
-        # Copy Blocks class if available
-        if [ -f "$THEME_FILES_DIR/blocks-class.php" ]; then
-            if ! safe_copy "$THEME_FILES_DIR/blocks-class.php" "$PLUGIN_PATH/includes/class-derleiti-blocks.php" "Blocks class"; then
-                print_warning "Could not copy Blocks class"
-            else
-                print_success "Blocks class copied"
+        # Copy required AI settings files
+        print_progress "Copying AI settings files"
+        ai_settings_files=(
+            "admin-settings-ai.php:includes/ai/class-derleiti-ai-settings.php"
+            "prompt-templates-management.php:includes/ai/class-derleiti-ai-templates.php"
+            "rest-api-endpoints.php:includes/ai/class-derleiti-ai-api.php"
+        )
+        
+        for file_mapping in "${ai_settings_files[@]}"; do
+            source_file="${file_mapping%%:*}"
+            dest_path="${file_mapping##*:}"
+            
+            if [ -f "$THEME_FILES_DIR/$source_file" ]; then
+                if ! safe_copy "$THEME_FILES_DIR/$source_file" "$PLUGIN_PATH/$dest_path" "$dest_path"; then
+                    print_warning "Could not copy AI settings file: $source_file to $dest_path"
+                else
+                    print_success "AI settings file copied: $dest_path"
+                fi
             fi
-        fi
+        }
+        
+        # Copy CSS and JS files
+        print_progress "Copying CSS and JS files"
+        asset_files=(
+            "ai-content-css.css:blocks/css/ai-content.css" 
+            "ai-settings-css.css:admin/css/ai-settings.css"
+            "ai-settings-js.js:admin/js/ai-settings.js"
+            "settings-css.css:admin/css/settings.css"
+            "settings-js.js:admin/js/settings.js"
+        )
+        
+        for file_mapping in "${asset_files[@]}"; do
+            source_file="${file_mapping%%:*}"
+            dest_path="${file_mapping##*:}"
+            
+            if [ -f "$THEME_FILES_DIR/$source_file" ]; then
+                if ! safe_copy "$THEME_FILES_DIR/$source_file" "$PLUGIN_PATH/$dest_path" "$dest_path"; then
+                    print_warning "Could not copy asset file: $source_file to $dest_path"
+                else
+                    print_success "Asset file copied: $dest_path"
+                fi
+            fi
+        }
         
         # Create basic admin view templates
         print_progress "Creating admin view templates"
         if ! create_directory "$PLUGIN_PATH/admin/views" ""; then
             print_warning "Could not create admin/views directory"
         else
+            # Create main settings page
             cat > "$PLUGIN_PATH/admin/views/main-page.php" << 'EOF'
 <div class="wrap">
     <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
@@ -1835,6 +1719,7 @@ fi
 
 # Ask if the plugin should also be installed
 echo -e "${YELLOW}Would you also like to install the Derleiti Modern Theme Plugin? (j/n)${NC}"
+echo -e "${CYAN}The plugin adds AI integration, custom blocks, and other features.${NC}"
 read -p "> " INSTALL_PLUGIN
 INSTALL_PLUGIN=$(echo $INSTALL_PLUGIN | tr '[:upper:]' '[:lower:]')
 

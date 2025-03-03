@@ -4,3 +4,15 @@
 2025-03-02 22:58:38,854 - INFO - Uncommitted changes detected. Staging and committing.
 2025-03-02 22:58:38,863 - ERROR - Git command failed: Command '['git', 'fetch', 'origin', 'main']' returned non-zero exit status 128.
 2025-03-02 22:58:38,863 - ERROR - Command output: None
+2025-03-03 10:34:55,533 - INFO - Pull result: Bereits aktuell.
+
+2025-03-03 10:34:55,533 - INFO - Push result: 
+2025-03-03 10:34:55,533 - ERROR - Sync failed. Pull stderr: Von https://github.com/derleiti/aithemeplugin
+ * branch            main       -> FETCH_HEAD
+
+2025-03-03 10:34:55,533 - ERROR - Sync failed. Push stderr: git: 'credential-manager-core' ist kein Git-Befehl. Siehe 'git --help'.
+git: 'credential-manager-core' ist kein Git-Befehl. Siehe 'git --help'.
+remote: Support for password authentication was removed on August 13, 2021.
+remote: Please see https://docs.github.com/get-started/getting-started-with-git/about-remote-repositories#cloning-with-https-urls for information on currently recommended modes of authentication.
+fatal: Authentifizierung fehlgeschlagen für 'https://github.com/derleiti/aithemeplugin.git/'
+

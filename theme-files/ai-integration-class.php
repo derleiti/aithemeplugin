@@ -77,6 +77,10 @@ class Derleiti_AI_Integration {
                     'type' => 'string',
                     'default' => '',
                 ),
+                'temperature' => array(
+                    'type' => 'number',
+                    'default' => 0.7,
+                ),
             ),
         ));
         
@@ -114,6 +118,69 @@ class Derleiti_AI_Integration {
                 return current_user_can('manage_options');
             },
         ));
+        
+        // Endpoint für theme-specific AI content generation
+        register_rest_route('derleiti-plugin/v1', '/ai/generate-theme-content', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'rest_generate_theme_content'),
+            'permission_callback' => function() {
+                return current_user_can('edit_posts');
+            },
+            'args' => array(
+                'prompt' => array(
+                    'required' => true,
+                    'type' => 'string',
+                ),
+                'contentType' => array(
+                    'type' => 'string',
+                    'default' => 'paragraph',
+                ),
+                'tone' => array(
+                    'type' => 'string',
+                    'default' => 'neutral',
+                ),
+                'length' => array(
+                    'type' => 'string',
+                    'default' => 'medium',
+                ),
+                'provider' => array(
+                    'type' => 'string',
+                    'default' => '',
+                ),
+                'contentStyle' => array(
+                    'type' => 'string',
+                    'default' => 'default',
+                ),
+                'customClasses' => array(
+                    'type' => 'string',
+                    'default' => '',
+                ),
+            ),
+        ));
+        
+        // Endpoint for fetching prompt templates
+        register_rest_route('derleiti-plugin/v1', '/ai/prompt-templates', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'rest_get_prompt_templates'),
+            'permission_callback' => function() {
+                return current_user_can('edit_posts');
+            },
+        ));
+        
+        // Endpoint for fetching specific template details
+        register_rest_route('derleiti-plugin/v1', '/ai/prompt-template-details', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'rest_get_template_details'),
+            'permission_callback' => function() {
+                return current_user_can('edit_posts');
+            },
+            'args' => array(
+                'template_id' => array(
+                    'required' => true,
+                    'type' => 'string',
+                ),
+            ),
+        ));
     }
     
     /**
@@ -125,8 +192,9 @@ class Derleiti_AI_Integration {
         $tone = $request->get_param('tone');
         $length = $request->get_param('length');
         $provider = $request->get_param('provider');
+        $temperature = $request->get_param('temperature');
         
-        $content = $this->generate_content($prompt, $content_type, $tone, $length, $provider);
+        $content = $this->generate_content($prompt, $content_type, $tone, $length, $provider, $temperature);
         
         if (is_wp_error($content)) {
             return rest_ensure_response(array(
@@ -177,6 +245,91 @@ class Derleiti_AI_Integration {
             'success' => true,
             'providers' => $providers,
             'activeProvider' => $active_provider,
+        ));
+    }
+    
+    /**
+     * REST API handler for theme-specific content generation
+     */
+    public function rest_generate_theme_content($request) {
+        $prompt = $request->get_param('prompt');
+        $content_type = $request->get_param('contentType');
+        $tone = $request->get_param('tone');
+        $length = $request->get_param('length');
+        $provider = $request->get_param('provider');
+        $content_style = $request->get_param('contentStyle');
+        $custom_classes = $request->get_param('customClasses');
+        
+        // Generate content using the existing method
+        $content = $this->generate_content($prompt, $content_type, $tone, $length, $provider);
+        
+        if (is_wp_error($content)) {
+            return rest_ensure_response(array(
+                'success' => false,
+                'error' => $content->get_error_message(),
+            ));
+        }
+        
+        // Process the content for theme-specific styling if supported
+        if (method_exists($this, 'process_theme_content') && current_theme_supports('derleiti-ai-integration')) {
+            // Add content style and custom classes to the processing
+            $processed_content = $this->process_theme_content($content, $content_type, $content_style, $custom_classes);
+            
+            return rest_ensure_response(array(
+                'success' => true,
+                'content' => $processed_content,
+                'rawContent' => $content,
+                'themeSupport' => true,
+            ));
+        }
+        
+        // If theme support not available, return the raw content
+        return rest_ensure_response(array(
+            'success' => true,
+            'content' => $content,
+            'themeSupport' => false,
+        ));
+    }
+    
+    /**
+     * REST API handler for getting prompt templates
+     */
+    public function rest_get_prompt_templates() {
+        // Get prompt templates
+        $templates = $this->get_prompt_templates();
+        
+        return rest_ensure_response(array(
+            'success' => true,
+            'templates' => $templates,
+        ));
+    }
+    
+    /**
+     * REST API handler for getting template details
+     */
+    public function rest_get_template_details($request) {
+        $template_id = $request->get_param('template_id');
+        
+        if (empty($template_id)) {
+            return rest_ensure_response(array(
+                'success' => false,
+                'error' => __('Ungültige Vorlagen-ID.', 'derleiti-plugin'),
+            ));
+        }
+        
+        // Get templates
+        $templates = $this->get_prompt_templates();
+        
+        if (!isset($templates[$template_id])) {
+            return rest_ensure_response(array(
+                'success' => false,
+                'error' => __('Vorlage nicht gefunden.', 'derleiti-plugin'),
+            ));
+        }
+        
+        return rest_ensure_response(array(
+            'success' => true,
+            'template' => $templates[$template_id],
         ));
     }
     
@@ -278,13 +431,14 @@ class Derleiti_AI_Integration {
         $tone = isset($_POST['tone']) ? sanitize_text_field($_POST['tone']) : 'neutral';
         $length = isset($_POST['length']) ? sanitize_text_field($_POST['length']) : 'medium';
         $provider = isset($_POST['provider']) ? sanitize_text_field($_POST['provider']) : '';
+        $temperature = isset($_POST['temperature']) ? floatval($_POST['temperature']) : 0.7;
         
         if (empty($prompt)) {
             wp_send_json_error(array('message' => __('Bitte geben Sie einen Prompt ein.', 'derleiti-plugin')));
             wp_die();
         }
         
-        $content = $this->generate_content($prompt, $content_type, $tone, $length, $provider);
+        $content = $this->generate_content($prompt, $content_type, $tone, $length, $provider, $temperature);
         
         if (is_wp_error($content)) {
             wp_send_json_error(array('message' => $content->get_error_message()));
@@ -344,10 +498,11 @@ class Derleiti_AI_Integration {
      * @param string $tone Tonalität des Inhalts (neutral, formal, freundlich)
      * @param string $length Länge des Inhalts (short, medium, long)
      * @param string $provider Optionaler spezifischer KI-Provider
+     * @param float $temperature Kreativitätswert (0.0 - 1.0)
      * 
      * @return string|WP_Error Generierter Inhalt oder Fehler
      */
-    public function generate_content($prompt, $content_type = 'paragraph', $tone = 'neutral', $length = 'medium', $provider = '') {
+    public function generate_content($prompt, $content_type = 'paragraph', $tone = 'neutral', $length = 'medium', $provider = '', $temperature = 0.7) {
         // Überprüfe, ob KI-Integrationen aktiviert sind
         if (!$this->is_ai_enabled()) {
             return new WP_Error('ai_disabled', __('KI-Integration ist deaktiviert.', 'derleiti-plugin'));
@@ -362,7 +517,7 @@ class Derleiti_AI_Integration {
         $system_prompt = $this->generate_system_prompt($content_type, $tone, $length);
         
         // Cache-Schlüssel generieren
-        $cache_key = 'derleiti_ai_content_' . md5($prompt . $content_type . $tone . $length . $provider);
+        $cache_key = 'derleiti_ai_content_' . md5($prompt . $content_type . $tone . $length . $provider . $temperature);
         $cached_result = get_transient($cache_key);
         
         if ($cached_result !== false) {
@@ -373,15 +528,15 @@ class Derleiti_AI_Integration {
             // Provider-spezifische Generierung
             switch ($provider) {
                 case 'openai':
-                    $content = $this->generate_content_openai($prompt, $system_prompt);
+                    $content = $this->generate_content_openai($prompt, $system_prompt, $temperature);
                     break;
                     
                 case 'gemini':
-                    $content = $this->generate_content_gemini($prompt, $system_prompt);
+                    $content = $this->generate_content_gemini($prompt, $system_prompt, $temperature);
                     break;
                     
                 case 'anthropic':
-                    $content = $this->generate_content_anthropic($prompt, $system_prompt);
+                    $content = $this->generate_content_anthropic($prompt, $system_prompt, $temperature);
                     break;
                     
                 case 'mock':
@@ -478,9 +633,23 @@ class Derleiti_AI_Integration {
     
     /**
      * Generiere Systemprompt basierend auf den Parametern
+     * 
+     * @param string $content_type Art des Inhalts
+     * @param string $tone Tonalität
+     * @param string $length Länge
+     * @return string Generierter Systemprompt
      */
     private function generate_system_prompt($content_type, $tone, $length) {
         $system_prompt = "Du bist ein hilfreicher KI-Assistent, der Inhalte für eine WordPress-Website generiert. ";
+        
+        // Get theme context for more specific instructions
+        $theme_context = $this->get_theme_context();
+        
+        // Add theme-specific instructions if theme supports AI integration
+        if ($this->is_theme_supported()) {
+            $system_prompt .= "Die Website verwendet das Theme '{$theme_context['theme_name']}' ";
+            $system_prompt .= "mit einem {$theme_context['layout_style']} Layout-Stil und einem {$theme_context['color_scheme']} Farbschema. ";
+        }
         
         // Content Type
         switch ($content_type) {
@@ -495,6 +664,12 @@ class Derleiti_AI_Integration {
                 break;
             case 'code':
                 $system_prompt .= "Generiere gut kommentierten Code ";
+                break;
+            case 'hero':
+                $system_prompt .= "Generiere ansprechenden Text für einen Hero-Bereich mit Haupttitel (h1), Untertitel und Call-to-Action ";
+                break;
+            case 'feature':
+                $system_prompt .= "Generiere eine kurze, überzeugende Feature-Beschreibung ";
                 break;
             default:
                 $system_prompt .= "Generiere einen informativen Text ";
@@ -533,15 +708,122 @@ class Derleiti_AI_Integration {
                 $system_prompt .= "mit angemessener Länge. ";
         }
         
-        $system_prompt .= "Verwende HTML-Formatierung wenn sinnvoll, aber halte es einfach. Antworte nur mit dem generierten Inhalt ohne zusätzliche Einleitungen oder Erklärungen.";
+        // Add theme-specific HTML guidance if supported
+        if ($this->is_theme_supported() && isset($theme_context['css_classes']) && !empty($theme_context['css_classes'])) {
+            $system_prompt .= "Wenn du HTML-Auszeichnungen verwendest, nutze diese CSS-Klassen für optimale Darstellung im Theme: ";
+            $system_prompt .= implode(', ', $theme_context['css_classes']) . ". ";
+        } else {
+            $system_prompt .= "Verwende HTML-Formatierung wenn sinnvoll, aber halte es einfach. ";
+        }
+        
+        $system_prompt .= "Antworte nur mit dem generierten Inhalt ohne zusätzliche Einleitungen oder Erklärungen.";
         
         return $system_prompt;
     }
     
     /**
+     * Check if theme supports AI integration
+     * 
+     * @return boolean True if theme supports AI integration
+     */
+    private function is_theme_supported() {
+        return current_theme_supports('derleiti-ai-integration');
+    }
+    
+    /**
+     * Get theme-specific AI context
+     * 
+     * @return array Theme context information
+     */
+    private function get_theme_context() {
+        $context = array(
+            'theme_name' => 'Generic',
+            'theme_version' => '1.0',
+            'layout_style' => 'default',
+            'color_scheme' => 'default',
+            'primary_color' => '#0066cc',
+            'secondary_color' => '#2c3e50',
+            'text_color' => '#333333',
+            'ai_content_class' => '',
+            'css_classes' => array(),
+        );
+        
+        // Get current theme information
+        $theme = wp_get_theme();
+        if ($theme) {
+            $context['theme_name'] = $theme->get('Name');
+            $context['theme_version'] = $theme->get('Version');
+        }
+        
+        // Get theme customization options if available
+        $context['primary_color'] = get_theme_mod('primary_color', $context['primary_color']);
+        $context['secondary_color'] = get_theme_mod('secondary_color', $context['secondary_color']);
+        $context['text_color'] = get_theme_mod('text_color', $context['text_color']);
+        $context['layout_style'] = get_theme_mod('layout_style', $context['layout_style']);
+        
+        // Add recommended CSS classes for this theme if it's Derleiti Modern
+        if ($context['theme_name'] === 'Derleiti Modern') {
+            $context['css_classes'] = array(
+                'paragraph' => 'derleiti-text',
+                'headline' => 'derleiti-heading',
+                'list' => 'derleiti-list',
+                'callout' => 'derleiti-callout',
+                'button' => 'derleiti-button'
+            );
+            $context['ai_content_class'] = 'theme-derleiti-modern';
+        }
+        
+        // Apply context filter for theme customization
+        return apply_filters('derleiti_ai_context', $context);
+    }
+    
+    /**
+     * Process theme-specific content output
+     * 
+     * @param string $content Generated content
+     * @param string $content_type Content type
+     * @param string $content_style Content style
+     * @param string $custom_classes Custom CSS classes
+     * @return string Processed content with theme-specific styling
+     */
+    public function process_theme_content($content, $content_type, $content_style = 'default', $custom_classes = '') {
+        // Don't process if theme doesn't support AI integration
+        if (!$this->is_theme_supported()) {
+            return $content;
+        }
+        
+        // Get theme context for styling classes
+        $theme_context = $this->get_theme_context();
+        
+        // Build CSS classes
+        $wrapper_class = 'derleiti-ai-block';
+        
+        // Add content type as a class
+        $wrapper_class .= ' ' . $content_type;
+        
+        // Add content style as a class if it's not the default
+        if ($content_style !== 'default') {
+            $wrapper_class .= ' ' . $content_style;
+        }
+        
+        // Add theme-specific class if available
+        if (isset($theme_context['ai_content_class'])) {
+            $wrapper_class .= ' ' . $theme_context['ai_content_class'];
+        }
+        
+        // Add custom classes if provided
+        if (!empty($custom_classes)) {
+            $wrapper_class .= ' ' . $custom_classes;
+        }
+        
+        // Wrap content with appropriate classes
+        return '<div class="' . esc_attr($wrapper_class) . '">' . $content . '</div>';
+    }
+    
+    /**
      * Generiere Inhalte mit OpenAI
      */
-    private function generate_content_openai($prompt, $system_prompt) {
+    private function generate_content_openai($prompt, $system_prompt, $temperature = 0.7) {
         global $wpdb;
         $table_name = $wpdb->prefix . 'derleiti_settings';
         
@@ -560,7 +842,7 @@ class Derleiti_AI_Integration {
         );
         
         $body = json_encode(array(
-            'model' => 'gpt-4-turbo-preview', // Aktuellstes Modell verwenden
+            'model' => 'gpt-4-turbo', // Aktuellstes Modell verwenden
             'messages' => array(
                 array(
                     'role' => 'system',
@@ -571,7 +853,7 @@ class Derleiti_AI_Integration {
                     'content' => $prompt,
                 ),
             ),
-            'temperature' => 0.7,
+            'temperature' => floatval($temperature),
             'max_tokens' => 1500,
         ));
         
@@ -603,7 +885,7 @@ class Derleiti_AI_Integration {
     /**
      * Generiere Inhalte mit Google Gemini
      */
-    private function generate_content_gemini($prompt, $system_prompt) {
+    private function generate_content_gemini($prompt, $system_prompt, $temperature = 0.7) {
         global $wpdb;
         $table_name = $wpdb->prefix . 'derleiti_settings';
         
@@ -632,7 +914,7 @@ class Derleiti_AI_Integration {
                 ),
             ),
             'generationConfig' => array(
-                'temperature' => 0.7,
+                'temperature' => floatval($temperature),
                 'maxOutputTokens' => 1500,
             ),
         ));
@@ -665,7 +947,7 @@ class Derleiti_AI_Integration {
     /**
      * Generiere Inhalte mit Anthropic Claude
      */
-    private function generate_content_anthropic($prompt, $system_prompt) {
+    private function generate_content_anthropic($prompt, $system_prompt, $temperature = 0.7) {
         global $wpdb;
         $table_name = $wpdb->prefix . 'derleiti_settings';
         
@@ -693,6 +975,7 @@ class Derleiti_AI_Integration {
                     'content' => $prompt,
                 ),
             ),
+            'temperature' => floatval($temperature),
             'max_tokens' => 1500,
         ));
         
@@ -777,6 +1060,7 @@ class Derleiti_AI_Integration {
             'n' => 1,
             'size' => $image_size,
             'response_format' => 'url',
+            'model' => 'dall-e-3', // Use updated model
         ));
         
         $response = wp_remote_post($api_url, array(
@@ -1133,19 +1417,41 @@ class Derleiti_AI_Integration {
             'tone' => 'neutral',
             'length' => 'medium',
             'provider' => '',
+            'style' => 'default',
+            'class' => '',
         ), $atts, 'derleiti_ai_content');
         
         if (empty($atts['prompt'])) {
             return '<p><em>' . __('Bitte geben Sie einen Prompt an.', 'derleiti-plugin') . '</em></p>';
         }
         
-        $content = $this->generate_content($atts['prompt'], $atts['type'], $atts['tone'], $atts['length'], $atts['provider']);
+        $content = $this->generate_content(
+            $atts['prompt'],
+            $atts['type'],
+            $atts['tone'],
+            $atts['length'],
+            $atts['provider']
+        );
         
         if (is_wp_error($content)) {
             return '<p><em>' . $content->get_error_message() . '</em></p>';
         }
         
-        return '<div class="derleiti-ai-block">' . $content . '</div>';
+        // Process theme-specific styling
+        if ($this->is_theme_supported() && method_exists($this, 'process_theme_content')) {
+            return $this->process_theme_content($content, $atts['type'], $atts['style'], $atts['class']);
+        }
+        
+        // Fallback when theme integration is not available
+        $class = 'derleiti-ai-block ' . esc_attr($atts['type']);
+        if ($atts['style'] !== 'default') {
+            $class .= ' ' . esc_attr($atts['style']);
+        }
+        if (!empty($atts['class'])) {
+            $class .= ' ' . esc_attr($atts['class']);
+        }
+        
+        return '<div class="' . esc_attr($class) . '">' . $content . '</div>';
     }
     
     /**
@@ -1311,5 +1617,59 @@ class Derleiti_AI_Integration {
         }
         
         return false;
+    }
+    
+    /**
+     * Get prompt templates
+     * 
+     * @return array Templates array
+     */
+    public function get_prompt_templates() {
+        $saved_templates = get_option('derleiti_ai_prompt_templates', array());
+        
+        // Merge with default templates
+        $default_templates = $this->get_default_prompt_templates();
+        
+        return array_merge($default_templates, $saved_templates);
+    }
+    
+    /**
+     * Get default prompt templates
+     * 
+     * @return array Default templates
+     */
+    private function get_default_prompt_templates() {
+        return array(
+            'blog_post' => array(
+                'title' => __('Blog-Beitrag', 'derleiti-plugin'),
+                'prompt' => __('Schreibe einen informativen Blog-Beitrag zum Thema {topic} mit Fokus auf {aspect}.', 'derleiti-plugin'),
+                'variables' => array('topic', 'aspect'),
+                'type' => 'paragraph'
+            ),
+            'product_description' => array(
+                'title' => __('Produktbeschreibung', 'derleiti-plugin'),
+                'prompt' => __('Erstelle eine überzeugende Produktbeschreibung für {product_name}, das folgende Vorteile bietet: {benefits}.', 'derleiti-plugin'),
+                'variables' => array('product_name', 'benefits'),
+                'type' => 'paragraph'
+            ),
+            'faq_questions' => array(
+                'title' => __('FAQ Fragen', 'derleiti-plugin'),
+                'prompt' => __('Generiere 5 häufig gestellte Fragen und Antworten zum Thema {topic}.', 'derleiti-plugin'),
+                'variables' => array('topic'),
+                'type' => 'list'
+            ),
+            'seo_meta' => array(
+                'title' => __('SEO Meta-Beschreibung', 'derleiti-plugin'),
+                'prompt' => __('Erstelle eine SEO-optimierte Meta-Beschreibung für eine Webseite über {topic}, die maximal 155 Zeichen lang ist.', 'derleiti-plugin'),
+                'variables' => array('topic'),
+                'type' => 'paragraph'
+            ),
+            'hero_text' => array(
+                'title' => __('Hero-Section Text', 'derleiti-plugin'),
+                'prompt' => __('Erstelle einen packenden Haupt-Titel und Untertitel für die Hero-Section einer Website zum Thema {topic}.', 'derleiti-plugin'),
+                'variables' => array('topic'),
+                'type' => 'hero'
+            )
+        );
     }
 }

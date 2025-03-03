@@ -156,6 +156,26 @@ class Derleiti_Blocks_Manager {
                     'type' => 'string',
                     'default' => '',
                 ],
+                'provider' => [
+                    'type' => 'string',
+                    'default' => '',
+                ],
+                'temperature' => [
+                    'type' => 'number',
+                    'default' => 0.7,
+                ],
+                'contentStyle' => [
+                    'type' => 'string',
+                    'default' => 'default',
+                ],
+                'themeIntegration' => [
+                    'type' => 'boolean',
+                    'default' => true,
+                ],
+                'customClasses' => [
+                    'type' => 'string',
+                    'default' => '',
+                ],
             ],
             'render_callback' => [$this, 'render_ai_content_block'],
         ]);
@@ -211,6 +231,7 @@ class Derleiti_Blocks_Manager {
                 'pluginUrl' => DERLEITI_PLUGIN_URL,
                 'ajaxUrl' => admin_url('admin-ajax.php'),
                 'nonce' => wp_create_nonce('derleiti_blocks_nonce'),
+                'restUrl' => esc_url_raw(rest_url('derleiti-plugin/v1/')),
                 'placeholder' => $this->assets_url . 'images/placeholder.jpg',
                 'strings' => [
                     'generateContent' => __('Inhalt generieren', 'derleiti-plugin'),
@@ -242,3 +263,347 @@ class Derleiti_Blocks_Manager {
                 [],
                 DERLEITI_PLUGIN_VERSION
             );
+            
+            // Frontend script from build if exists
+            if (file_exists($this->assets_path . 'build/frontend.js')) {
+                wp_enqueue_script(
+                    'derleiti-blocks-frontend',
+                    $this->assets_url . 'build/frontend.js',
+                    ['jquery'],
+                    DERLEITI_PLUGIN_VERSION,
+                    true
+                );
+            }
+        } else {
+            // Fallback for traditional styles
+            wp_enqueue_style(
+                'derleiti-blocks-style',
+                $this->assets_url . 'css/blocks.style.css',
+                [],
+                DERLEITI_PLUGIN_VERSION
+            );
+            
+            // Fallback for traditional scripts
+            if (file_exists($this->assets_path . 'js/blocks.frontend.js')) {
+                wp_enqueue_script(
+                    'derleiti-blocks-frontend',
+                    $this->assets_url . 'js/blocks.frontend.js',
+                    ['jquery'],
+                    DERLEITI_PLUGIN_VERSION,
+                    true
+                );
+            }
+        }
+    }
+    
+    /**
+     * Register block patterns
+     */
+    public function register_block_patterns() {
+        // Register pattern category if function exists
+        if (function_exists('register_block_pattern_category')) {
+            register_block_pattern_category('derleiti-patterns', [
+                'label' => __('Derleiti Patterns', 'derleiti-plugin')
+            ]);
+        }
+        
+        // Register patterns if function exists
+        if (function_exists('register_block_pattern')) {
+            // Hero Section Pattern
+            register_block_pattern(
+                'derleiti/hero-section',
+                [
+                    'title' => __('Hero Section', 'derleiti-plugin'),
+                    'description' => __('A hero section with heading, text and button.', 'derleiti-plugin'),
+                    'categories' => ['derleiti-patterns'],
+                    'content' => $this->get_pattern_content('hero-section'),
+                ]
+            );
+            
+            // Features Grid Pattern
+            register_block_pattern(
+                'derleiti/features-grid',
+                [
+                    'title' => __('Features Grid', 'derleiti-plugin'),
+                    'description' => __('A grid of features with icons and text.', 'derleiti-plugin'),
+                    'categories' => ['derleiti-patterns'],
+                    'content' => $this->get_pattern_content('features-grid'),
+                ]
+            );
+            
+            // Testimonial Section Pattern
+            register_block_pattern(
+                'derleiti/testimonial-section',
+                [
+                    'title' => __('Testimonial Section', 'derleiti-plugin'),
+                    'description' => __('A testimonial section with quotes and images.', 'derleiti-plugin'),
+                    'categories' => ['derleiti-patterns'],
+                    'content' => $this->get_pattern_content('testimonial-section'),
+                ]
+            );
+            
+            // Call to Action Pattern
+            register_block_pattern(
+                'derleiti/call-to-action',
+                [
+                    'title' => __('Call to Action', 'derleiti-plugin'),
+                    'description' => __('A call to action section with background, heading, and button.', 'derleiti-plugin'),
+                    'categories' => ['derleiti-patterns'],
+                    'content' => $this->get_pattern_content('call-to-action'),
+                ]
+            );
+            
+            // Project Showcase Pattern
+            register_block_pattern(
+                'derleiti/project-showcase',
+                [
+                    'title' => __('Project Showcase', 'derleiti-plugin'),
+                    'description' => __('A showcase for portfolio projects with images and details.', 'derleiti-plugin'),
+                    'categories' => ['derleiti-patterns'],
+                    'content' => $this->get_pattern_content('project-showcase'),
+                ]
+            );
+        }
+    }
+    
+    /**
+     * Register custom block variations
+     */
+    public function register_block_variations() {
+        // If blocks.js is enqueued, we can add our variations script
+        wp_add_inline_script(
+            'derleiti-blocks-editor',
+            '
+            (function() {
+                window.addEventListener("load", function() {
+                    if (window.wp && window.wp.blocks && window.wp.blocks.registerBlockVariation) {
+                        // Button with Icon Right Variation
+                        wp.blocks.registerBlockVariation("core/button", {
+                            name: "button-icon-right",
+                            title: "Button with Icon Right",
+                            description: "Button with an icon on the right side",
+                            attributes: {
+                                className: "has-icon-right"
+                            },
+                            isDefault: false,
+                            icon: "button",
+                            scope: ["inserter"]
+                        });
+                        
+                        // Button with Icon Left Variation
+                        wp.blocks.registerBlockVariation("core/button", {
+                            name: "button-icon-left",
+                            title: "Button with Icon Left",
+                            description: "Button with an icon on the left side",
+                            attributes: {
+                                className: "has-icon-left"
+                            },
+                            isDefault: false,
+                            icon: "button",
+                            scope: ["inserter"]
+                        });
+                        
+                        // Hero Container Variation
+                        wp.blocks.registerBlockVariation("core/group", {
+                            name: "hero-container",
+                            title: "Hero Container",
+                            description: "A container for hero sections",
+                            attributes: {
+                                className: "is-hero-container",
+                                align: "full"
+                            },
+                            isDefault: false,
+                            icon: "align-center",
+                            scope: ["inserter"]
+                        });
+                        
+                        // Section Container Variation
+                        wp.blocks.registerBlockVariation("core/group", {
+                            name: "section-container",
+                            title: "Section Container",
+                            description: "A container for page sections",
+                            attributes: {
+                                className: "is-section-container",
+                                align: "full"
+                            },
+                            isDefault: false,
+                            icon: "align-center",
+                            scope: ["inserter"]
+                        });
+                    }
+                });
+            })();
+            ',
+            'after'
+        );
+    }
+    
+    /**
+     * Get pattern content from file
+     */
+    private function get_pattern_content($pattern_name) {
+        $file_path = $this->assets_path . 'patterns/' . $pattern_name . '.html';
+        
+        if (file_exists($file_path)) {
+            return file_get_contents($file_path);
+        }
+        
+        // Default patterns if file doesn't exist
+        switch ($pattern_name) {
+            case 'hero-section':
+                return '<!-- wp:group {"align":"full","backgroundColor":"secondary","textColor":"background","layout":{"type":"constrained"}} -->
+                <div class="wp-block-group alignfull has-background-color has-secondary-background-color has-text-color has-background"><!-- wp:heading {"textAlign":"center","level":1,"fontSize":"huge"} -->
+                <h1 class="has-text-align-center has-huge-font-size">Welcome to Derleiti Modern</h1>
+                <!-- /wp:heading -->
+
+                <!-- wp:paragraph {"align":"center","fontSize":"large"} -->
+                <p class="has-text-align-center has-large-font-size">A powerful WordPress theme for modern websites.</p>
+                <!-- /wp:paragraph -->
+
+                <!-- wp:buttons {"layout":{"type":"flex","justifyContent":"center"}} -->
+                <div class="wp-block-buttons"><!-- wp:button {"backgroundColor":"primary"} -->
+                <div class="wp-block-button"><a class="wp-block-button__link has-primary-background-color has-background wp-element-button">Get Started</a></div>
+                <!-- /wp:button --></div>
+                <!-- /wp:buttons --></div>
+                <!-- /wp:group -->';
+                
+            case 'features-grid':
+                return '<!-- wp:columns {"align":"wide"} -->
+                <div class="wp-block-columns alignwide"><!-- wp:column -->
+                <div class="wp-block-column"><!-- wp:heading {"textAlign":"center","level":3} -->
+                <h3 class="has-text-align-center">Feature 1</h3>
+                <!-- /wp:heading -->
+
+                <!-- wp:paragraph {"align":"center"} -->
+                <p class="has-text-align-center">Description of the first amazing feature of your product or service.</p>
+                <!-- /wp:paragraph --></div>
+                <!-- /wp:column -->
+
+                <!-- wp:column -->
+                <div class="wp-block-column"><!-- wp:heading {"textAlign":"center","level":3} -->
+                <h3 class="has-text-align-center">Feature 2</h3>
+                <!-- /wp:heading -->
+
+                <!-- wp:paragraph {"align":"center"} -->
+                <p class="has-text-align-center">Description of the second amazing feature of your product or service.</p>
+                <!-- /wp:paragraph --></div>
+                <!-- /wp:column -->
+
+                <!-- wp:column -->
+                <div class="wp-block-column"><!-- wp:heading {"textAlign":"center","level":3} -->
+                <h3 class="has-text-align-center">Feature 3</h3>
+                <!-- /wp:heading -->
+
+                <!-- wp:paragraph {"align":"center"} -->
+                <p class="has-text-align-center">Description of the third amazing feature of your product or service.</p>
+                <!-- /wp:paragraph --></div>
+                <!-- /wp:column --></div>
+                <!-- /wp:columns -->';
+                
+            default:
+                return '';
+        }
+    }
+    
+    /**
+     * Render feature grid block
+     */
+    public function render_feature_grid_block($attributes, $content) {
+        $columns = isset($attributes['columns']) ? intval($attributes['columns']) : 3;
+        $items = isset($attributes['items']) ? $attributes['items'] : [];
+        $background_color = isset($attributes['backgroundColor']) ? $attributes['backgroundColor'] : '';
+        $text_color = isset($attributes['textColor']) ? $attributes['textColor'] : '';
+        $align = isset($attributes['align']) ? $attributes['align'] : 'wide';
+        
+        $style = '';
+        if (!empty($background_color)) {
+            $style .= 'background-color: ' . esc_attr($background_color) . ';';
+        }
+        if (!empty($text_color)) {
+            $style .= 'color: ' . esc_attr($text_color) . ';';
+        }
+        
+        $class_names = 'derleiti-feature-grid';
+        if (!empty($align)) {
+            $class_names .= ' align' . esc_attr($align);
+        }
+        
+        $html = '<div class="' . esc_attr($class_names) . '" style="' . esc_attr($style) . '">';
+        $html .= '<div class="derleiti-feature-grid-inner columns-' . esc_attr($columns) . '">';
+        
+        if (!empty($items) && is_array($items)) {
+            foreach ($items as $item) {
+                $html .= '<div class="derleiti-feature-grid-item">';
+                
+                if (!empty($item['iconType']) && $item['iconType'] === 'image' && !empty($item['imageUrl'])) {
+                    $html .= '<div class="derleiti-feature-grid-image">';
+                    $html .= '<img src="' . esc_url($item['imageUrl']) . '" alt="' . esc_attr($item['title'] ?? '') . '">';
+                    $html .= '</div>';
+                } elseif (!empty($item['iconType']) && $item['iconType'] === 'icon' && !empty($item['icon'])) {
+                    $html .= '<div class="derleiti-feature-grid-icon">';
+                    $html .= '<span class="' . esc_attr($item['icon']) . '"></span>';
+                    $html .= '</div>';
+                }
+                
+                if (!empty($item['title'])) {
+                    $html .= '<h3 class="derleiti-feature-grid-title">' . esc_html($item['title']) . '</h3>';
+                }
+                
+                if (!empty($item['description'])) {
+                    $html .= '<div class="derleiti-feature-grid-description">' . wp_kses_post($item['description']) . '</div>';
+                }
+                
+                $html .= '</div>';
+            }
+        } else {
+            $html .= '<div class="derleiti-feature-grid-placeholder">';
+            $html .= __('Add feature items in the editor.', 'derleiti-plugin');
+            $html .= '</div>';
+        }
+        
+        $html .= '</div>';
+        $html .= '</div>';
+        
+        return $html;
+    }
+    
+    /**
+     * Render AI content block
+     */
+    public function render_ai_content_block($attributes, $content) {
+        $generated_content = isset($attributes['generatedContent']) ? $attributes['generatedContent'] : '';
+        $content_type = isset($attributes['contentType']) ? $attributes['contentType'] : 'paragraph';
+        $content_style = isset($attributes['contentStyle']) ? $attributes['contentStyle'] : 'default';
+        $custom_classes = isset($attributes['customClasses']) ? $attributes['customClasses'] : '';
+        $theme_integration = isset($attributes['themeIntegration']) ? (bool)$attributes['themeIntegration'] : true;
+        
+        if (empty($generated_content)) {
+            return '<div class="derleiti-ai-placeholder">' . __('Kein KI-Inhalt generiert. Bitte geben Sie einen Prompt ein und generieren Sie Inhalt im Block-Editor.', 'derleiti-plugin') . '</div>';
+        }
+        
+        // Check if AI integration class is available for theme integration
+        if ($theme_integration && class_exists('Derleiti_AI_Integration') && current_theme_supports('derleiti-ai-integration')) {
+            $ai = new Derleiti_AI_Integration();
+            // Process content through the theme-specific processor if method exists
+            if (method_exists($ai, 'process_theme_content')) {
+                return $ai->process_theme_content($generated_content, $content_type, $content_style, $custom_classes);
+            }
+        }
+        
+        // Build class names for the AI block
+        $classes = 'derleiti-ai-block ' . esc_attr($content_type);
+        
+        // Add content style class if not default
+        if ($content_style !== 'default') {
+            $classes .= ' ' . esc_attr($content_style);
+        }
+        
+        // Add custom classes if provided
+        if (!empty($custom_classes)) {
+            $classes .= ' ' . esc_attr($custom_classes);
+        }
+        
+        // Fallback to standard output if AI integration class is not available
+        return '<div class="' . esc_attr($classes) . '">' . wp_kses_post($generated_content) . '</div>';
+    }
+}

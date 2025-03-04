@@ -1,83 +1,28 @@
-# Derleiti Modern WordPress Theme
+# Derleiti Plugin
 
-Ein modernes WordPress-Theme für Blog- und Projektdarstellung mit optimiertem Design, KI-Integration und Block-Editor-Integration.
+Ein Plugin für erweiterte Funktionen des Derleiti Modern Themes mit KI-Integration, Block-Editor-Erweiterungen und Design-Tools.
 
 ## Features
 
-- Vollständig responsives Design
-- Block-Editor (Gutenberg) Unterstützung
-- Dunkelmodus-Unterstützung
-- Benutzerdefinierter Projektbereich
-- Block-Patterns für einfaches Seitenlayout
-- Performance-optimiert
 - KI-Integration mit mehreren Anbietern (OpenAI, Google Gemini, Anthropic Claude)
-
-## Anforderungen
-
-- WordPress 6.2 oder höher
-- PHP 8.1 oder höher
+- Erweiterte Block-Editor-Funktionen
+- Benutzerdefinierte Shortcodes für KI-generierte Inhalte
+- Performance-Optimierungen
+- Admin-Einstellungen für Theme-Anpassung
+- Erweiterte Prompt-Vorlagen und -Verwaltung
 
 ## Installation
 
-1. git clone https://github.com/derleiti/aithemeplugin
-2. Aktiviere das Theme und das Plugin im WordPress-Admin bereich
+1. Lade dieses Plugin in das Verzeichnis /wp-content/plugins/ hoch
+2. Aktiviere das Plugin über das WordPress-Admin-Panel
+3. Konfiguriere die KI-Integration unter "Derleiti > KI-Integration"
 
-### Alternative Installation
+## Systemanforderungen
 
-Verwende das Installationsscript:
+- WordPress 6.2+ (getestet bis 6.6)
+- PHP 8.1+ (kompatibel mit PHP 8.1-8.3)
+- Derleiti Modern Theme (empfohlen)
 
-```bash
-bash ai_theme_install.sh
-```
+## Verwendung
 
-Folge den Anweisungen des Scripts, um das Theme und optional auch das Plugin zu installieren.
-
-## KI-Integration
-
-Das Derleiti Modern Theme bietet leistungsstarke KI-Funktionalitäten durch die Integration mit verschiedenen AI-Anbietern:
-
-### Unterstützte AI-Anbieter
-
-- **OpenAI (ChatGPT & DALL-E)** - Textgenerierung und Bildgenerierung
-- **Google Gemini** - Textgenerierung mit fortschrittlichem Kontextverständnis
-- **Anthropic Claude** - Hochwertige Textgenerierung
-- **Stable Diffusion** - Fortschrittliche Bildgenerierung
-
-### Einrichtung
-
-1. Navigiere zu "Derleiti > KI-Integration" im WordPress-Admin-Bereich
-2. Aktiviere die KI-Integration
-3. Füge mindestens einen API-Schlüssel für einen der unterstützten Anbieter hinzu
-4. Wähle deinen Standard-KI-Anbieter aus
-5. Speichere die Einstellungen
-
-### Verwendung
-
-- **Im Gutenberg-Editor**: Verwende den AI-Content-Block, um KI-generierten Inhalt direkt in deinen Seiten einzufügen
-- **Über Shortcodes**: Füge `[derleiti_ai_content prompt="Dein Prompt hier"]` in deinen Inhalt ein
-- **Für Entwickler**: Verwende die API-Funktionen, um KI-Funktionalität in eigene Themes oder Plugins zu integrieren
-
-## Anpassung
-
-Das Theme bietet verschiedene Anpassungsmöglichkeiten im WordPress Customizer:
-
-- Farbschema
-- Logo
-- Footer-Text
-- Layout-Optionen
-- KI-Einstellungen
-
-Die erweiterten Einstellungen findest du im Derleiti Plugin:
-
-- KI-Integration und API-Konfiguration
-- Block-Editor-Erweiterungen
-- Performance-Optimierungen
-- Erweiterte Designtools
-
-## Support
-
-Bei Fragen oder Problemen erstelle bitte ein Issue auf der [GitHub-Repository-Seite](https://github.com/deinuser/derleiti-modern).
-
-## Lizenz
-
-Dieses Theme steht unter der GPL v2 oder späteren Version.
+Nach der Installation und Aktivierung stehen dir erweiterte Block-Editor-Funktionen, KI-Features und optimierte Theme-Anpassungen zur Verfügung. Konfiguriere deine API-Schlüssel für die KI-Integration unter den Plugin-Einstellungen.

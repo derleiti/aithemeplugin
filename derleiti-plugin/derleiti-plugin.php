@@ -1,4 +1,4 @@
-<?php
+// In derleiti-plugin.php
 /**
  * Plugin Name: Derleiti Modern Theme Plugin
  * Plugin URI: https://derleiti.de/plugin
@@ -16,6 +16,9 @@
  *
  * @package Derleiti_Plugin
  */
+
+// Plugin-Version definieren
+define('DERLEITI_PLUGIN_VERSION', '1.2.0');
 
 // Verhindere direkten Zugriff
 defined('ABSPATH') || exit;

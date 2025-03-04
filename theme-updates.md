@@ -1,49 +1,47 @@
 # Derleiti Modern Theme Updates
 
-## Version 2.6 Aktualisierungen
+## Version 2.2 Aktualisierungen (Aktuell)
 
 ### Kompatibilitätsverbesserungen
-- WordPress-Kompatibilität auf 6.6 aktualisiert
-- Vollständige PHP 8.2/8.3 Unterstützung implementiert
-- Unterstützung für die neuesten Block-Editor-Funktionen hinzugefügt
+- WordPress-Kompatibilität mit 6.2+ (getestet bis 6.6)
+- PHP 8.1-8.3 Unterstützung implementiert
+- Erweiterte Block-Editor-Unterstützung
 
-### CSS-Modernisierung
-- Container-Queries für verbesserte Responsivität implementiert
-- CSS-Variablen erweitert für einfachere Anpassbarkeit
-- scroll-behavior-Eigenschaften optimiert
-- Neue Animationen mit besserer Performance
+### Design und Layout
+- Vollständig responsives Design für alle Geräte
+- Dunkelmodus-Unterstützung mit automatischer Erkennung
+- Umfassende theme.json-Konfiguration
+- Erweiterte Block-Patterns für komplexe Layouts
+- Benutzerdefinierte Projektbereiche
 
-### JavaScript-Verbesserungen
-- Navigation.js auf ES6+ aktualisiert
-- Event-Handling für mobile Menüs verbessert
-- Smooth-Scroll-Funktionalität überarbeitet
-- Verbesserte Zugänglichkeitsunterstützung
+### JavaScript-Funktionalitäten
+- Verbesserte mobile Navigation
+- Optimierte Event-Listener für bessere Performance
+- Zugänglichkeitsverbesserungen für Tastaturnavigation
+- Responsive Menü-Toggling
 
-### Gutenberg-Verbesserungen
-- Neue Block-Styles und -Patterns hinzugefügt
-- Verbesserte theme.json-Konfiguration
-- Unterstützung für block-basierte Widgets optimiert
-- FSE (Full Site Editing) Funktionen verbessert
+### Block-Editor-Integration
+- Vollständige Gutenberg-Unterstützung
+- Benutzerdefinierte Block-Styles
+- Template-Teile für wiederverwendbare Komponenten
+- Integrierte Projektdarstellung
+- Vordefinierte Layouts für gängige Seitenstrukturen
 
-### Performance-Optimierungen
-- Core Web Vitals-fokussierte Verbesserungen
-- Lazy-Loading für alle Bilder standardmäßig aktiviert
-- Font-Loading-Strategien verbessert
+### KI-Integration
+- Nahtlose Verbindung mit dem Derleiti Plugin
+- Unterstützung für verschiedene KI-Anbieter
+- Theme-spezifische Styling für KI-generierte Inhalte
+- Optimierte Darstellung von KI-Blöcken
+- Erweiterte Context-API für themenspezifische KI-Prompts
+
+### Performance
+- Optimierte Asset-Ladestrategie
 - Reduzierte CSS- und JS-Dateigrößen
-
-### SEO-Verbesserungen
-- Schema.org-Markup verbessert
-- Strukturierte Daten für Projekte und Portfolios implementiert
-- Meta-Tag-Management erweitert
-
-### Neue Templates
-- Neue Archiv-Template für Projekte
-- Verbesserte 404-Seite
-- Angepasste Suchen-Template
-- Neue Template-Teile für wiederkehrende Layouts
+- Verbesserte Menüdarstellung auf mobilen Geräten
+- Optimierte Widget-Bereiche für Footer und Sidebar
 
 ### Wartung und Fehlerbehebungen
-- Behebt Probleme mit der mobilen Navigation in Safari
-- Verbessert die Kompatibilität mit beliebten Plugins
-- Behebt Styling-Fehler im Dunkelmodus
-- Optimiert die Übersetzungsunterstützung
+- Verbesserte Fehlerbehandlung bei fehlenden Menüs
+- Optimierte Bildanzeige in responsiven Layouts
+- Behebt Styling-Probleme in älteren Browsern
+- Verbesserte Internationalisierung

@@ -1,58 +1,60 @@
+## plugin-updates.md
+```markdown
 # Derleiti Modern Theme Plugin Updates
 
-## Version 1.1.0 Aktualisierungen
+## Version 1.2.0 Aktualisierungen (Aktuell)
 
 ### Kern-Verbesserungen
-- Kompatibilität mit WordPress 6.6 hergestellt
-- Vollständige PHP 8.2/8.3 Unterstützung implementiert
-- REST API-Endpunkte erweitert und verbessert
+- Kompatibilität mit WordPress 6.6 sichergestellt
+- Vollständige PHP 8.1-8.3 Unterstützung implementiert
 - Verbesserte Fehlerbehandlung und Logging
+- Erweiterte Sicherheitsmaßnahmen für API-Anfragen
 
 ### KI-Integration Erweiterungen
-- Unterstützung für neue KI-Modelle (GPT-4, Claude, etc.) hinzugefügt
-- Verbesserte Inhaltsanalyse und -generierung
-- KI-basierte SEO-Vorschläge implementiert
-- KI-Bildgenerierung mit neueren Modellen (DALL-E 3, Midjourney API)
-- Cache-System für KI-Anfragen zur Leistungsverbesserung
+- Erweiterte Unterstützung für mehrere KI-Anbieter (OpenAI, Google Gemini, Anthropic Claude)
+- Verbesserte Prompt-Vorlagen für verschiedene Anwendungsfälle
+- REST API-Endpunkte für KI-Inhaltsgenerierung
+- Rate-Limiting und Cache-System für KI-Anfragen
+- Erweiterte Admin-Einstellungen für KI-Integration
 
 ### Gutenberg-Block Erweiterungen
-- Neue Blöcke für dynamische Inhalte hinzugefügt
-- Bestehende Blöcke um neue Funktionen erweitert
-- Block-Vorlagen für gängige Layouts hinzugefügt
-- Verbesserte Benutzeroberfläche für Block-Einstellungen
-- Unterstützung für bedingte Anzeige von Blöcken
+- KI-Content-Block für die Integration von KI-generierten Inhalten
+- Block-Variationen für fortgeschrittene Layouts
+- Block-Patterns für gängige Seitenlayouts
+- Verbesserte Block-Registrierung für bessere Performance
+- Erweiterte Styling-Optionen für Theme-Integration
 
 ### Admin-Bereich Verbesserungen
-- Überarbeitetes Settings-Dashboard mit verbesserter Benutzerfreundlichkeit
-- Neue Analysetools für Content-Performance
-- Verbesserte Dokumentation innerhalb des Plugins
-- Echtzeit-Vorschau für Theme-Einstellungen
-- Integriertes Onboarding für neue Benutzer
+- Modulares Settings-Dashboard für verschiedene Funktionsbereiche
+- Erweiterte Einstellungen für KI-Konfiguration
+- Dashboard-Widget zur Plugin-Statusübersicht
+- Verbesserte Sicherheit durch zusätzliche Nonce-Überprüfungen
+- Erweiterte Prompt-Templates-Verwaltung
 
 ### Performance-Optimierungen
-- Überarbeitete Caching-Mechanismen
-- Verbesserte Datenbankabfragen und -indizierung
-- Reduzierte Abhängigkeiten und effizientere Asset-Ladestrategie
-- Verbesserte Asset-Minifizierung und -Komprimierung
-- Lazy-Loading für Admin-Komponenten
+- Optimierte Datenbankabfragen
+- Verbesserte Asset-Ladestrategie
+- Image-Upload-Validierung und -Optimierung
+- Lazy-Loading-Optionen für Bilder
+- Cache-Mechanismen für wiederkehrende Anfragen
 
-### Frontend-Tools
-- Erweiterte Social-Media-Integration
-- Verbesserte Schema.org Markup-Generierung
-- Neue Shortcodes für komplexe Layouts
-- Performance-Monitoring im Frontend für Administratoren
-- Automatische Bildoptimierung bei Upload
+### Theme-Integration
+- Nahtlose Integration mit dem Derleiti Modern Theme
+- Erweiterte KI-Funktionalität für Theme-Komponenten
+- Theme-spezifische Block-Styles und -Patterns
+- Dynamische CSS-Generierung für Theme-Anpassungen
+- Erweiterte Shortcodes für Theme-Layouts
 
 ### Wartung und Bugfixes
-- Behebt Kompatibilitätsprobleme mit beliebten Plugins
-- Behebt Speicherprobleme bei der KI-Inhaltsgenerierung
-- Verbessert die Validierung von Benutzereinstellungen
-- Aktualisiert veraltete API-Aufrufe
-- Verbessert Sicherheit durch zusätzliche Nonce-Überprüfungen
+- Verbesserte Fehlerbehandlung bei API-Anfragen
+- Optimierte Dateiberechtigungen und -struktur
+- Bessere Validierung von Benutzereinstellungen
+- Logging-System für verbesserte Fehlerbehebung
+- Kompatibilität mit verschiedenen WordPress-Umgebungen
 
-### Neue Features
-- Import/Export von Theme-Einstellungen zwischen Websites
-- Automatische Content-Audits mit KI-unterstützten Empfehlungen
-- Integration mit Google Analytics 4
-- Backup-System für Plugin-Einstellungen vor Updates
-- Verbesserte Internationalisierung und Übersetzungsunterstützung
+### Sicherheitsverbesserungen
+- Erweiterte Eingabevalidierung und -bereinigung
+- Zusätzliche Berechtigungsprüfungen
+- Schutz vor häufigen Sicherheitsrisiken
+- Verbesserte API-Anfragensicherheit
+- Rate-Limiting für API-Aufrufe

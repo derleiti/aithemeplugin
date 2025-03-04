@@ -10,11 +10,11 @@
     .site-navigation {
         display: flex;
     }
-    
+
     .menu-toggle {
         display: none;
     }
-    
+
     /* Even with nav-hidden class, show menu on desktop */
     .site-navigation.nav-hidden {
         display: flex;
@@ -24,7 +24,7 @@
 /* Updated mobile menu styles for better clarity */
 @media (max-width: 768px) {
     .site-navigation {
-        display: none;
+        width: 100%;
         flex-basis: 100%;
         margin-top: 20px;
     }
@@ -32,8 +32,30 @@
     .site-navigation.toggled {
         display: block;
     }
-    
+
+    .site-navigation.nav-hidden {
+        display: none;
+    }
+
     .menu-toggle {
         display: block;
+    }
+
+    /* Improve dropdown menu visibility on mobile */
+    .site-navigation ul {
+        display: block;
+        width: 100%;
+    }
+
+    .site-navigation ul li {
+        display: block;
+        width: 100%;
+        margin: 0;
+    }
+
+    .site-navigation ul li a {
+        display: block;
+        width: 100%;
+        padding: 10px 0;
     }
 }

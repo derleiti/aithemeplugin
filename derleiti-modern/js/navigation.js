@@ -17,7 +17,13 @@
         menuToggle.addEventListener('click', function() {
             menuToggle.classList.toggle('toggled');
             siteNav.classList.toggle('toggled');
-            siteNav.classList.toggle('nav-hidden');
+
+            // Fix: Korrekte Toggle-Logik für nav-hidden Klasse
+            if (siteNav.classList.contains('nav-hidden')) {
+                siteNav.classList.remove('nav-hidden');
+            } else {
+                siteNav.classList.add('nav-hidden');
+            }
 
             // Toggle aria-expanded Attribut
             var expanded = menuToggle.getAttribute('aria-expanded') === 'true';

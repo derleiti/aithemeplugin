@@ -8,8 +8,11 @@
             return;
         }
 
-        // Verstecke das Menü zu Beginn
-        siteNav.classList.add('nav-hidden');
+        // Nur für mobile Geräte das Menü anfangs verstecken
+        // Fix: Prüfe Bildschirmbreite vor dem Verstecken
+        if (window.innerWidth <= 768) {
+            siteNav.classList.add('nav-hidden');
+        }
 
         menuToggle.addEventListener('click', function() {
             menuToggle.classList.toggle('toggled');
@@ -19,6 +22,17 @@
             // Toggle aria-expanded Attribut
             var expanded = menuToggle.getAttribute('aria-expanded') === 'true';
             menuToggle.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+        });
+
+        // Behandle Bildschirmgrößenänderungen
+        window.addEventListener('resize', function() {
+            if (window.innerWidth > 768) {
+                // Entferne nav-hidden Klasse auf Desktop
+                siteNav.classList.remove('nav-hidden');
+            } else if (!menuToggle.classList.contains('toggled')) {
+                // Füge nav-hidden Klasse auf Mobilgeräten hinzu, wenn nicht getoggelt
+                siteNav.classList.add('nav-hidden');
+            }
         });
 
         // Tastaturnavigation: Füge für jeden Link sowohl focus- als auch blur-Events hinzu

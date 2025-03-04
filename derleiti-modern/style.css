@@ -1,0 +1,39 @@
+/* Adding this to your existing style.css file - Navigation fixes */
+
+/* Fix for the nav-hidden class that was missing */
+.site-navigation.nav-hidden {
+    display: none;
+}
+
+/* Ensure desktop menu is shown correctly */
+@media (min-width: 769px) {
+    .site-navigation {
+        display: flex;
+    }
+    
+    .menu-toggle {
+        display: none;
+    }
+    
+    /* Even with nav-hidden class, show menu on desktop */
+    .site-navigation.nav-hidden {
+        display: flex;
+    }
+}
+
+/* Updated mobile menu styles for better clarity */
+@media (max-width: 768px) {
+    .site-navigation {
+        display: none;
+        flex-basis: 100%;
+        margin-top: 20px;
+    }
+
+    .site-navigation.toggled {
+        display: block;
+    }
+    
+    .menu-toggle {
+        display: block;
+    }
+}

@@ -1,7 +1,8 @@
 #!/bin/bash
 # Derleiti Modern Theme - Enhanced Installation Script
-# Version 3.1.1 - Fully compatible with WordPress 6.7 and supports PHP 8.1-8.3
+# Version 3.2.0 - Compatible with WordPress 6.7+ and supports PHP 8.1-8.3
 # Enhanced error handling, improved logging, expanded AI integration, and streamlined installation process
+# Updates: Added verification for plugin compatibility, improved backup features, enhanced security measures
 
 # Color codes for better readability
 GREEN='\033[0;32m'
@@ -16,10 +17,13 @@ NC='\033[0m' # No Color
 # Variables
 DEBUG_MODE=0
 LOG_FILE="derleiti_install_$(date +%Y%m%d_%H%M%S).log"
-SCRIPT_VERSION="3.1.1"
+SCRIPT_VERSION="3.2.0"
 MIN_PHP_VERSION="8.1.0"
 MIN_WP_VERSION="6.2.0"
 RECOMMENDED_WP_VERSION="6.7"
+THEME_VERSION="2.2"
+PLUGIN_VERSION="1.2.0"
+BACKUP_DIR="derleiti_backups_$(date +%Y%m%d)"
 
 # Functions for UI
 print_header() {
@@ -28,6 +32,7 @@ print_header() {
     echo -e "${CYAN}       DERLEITI MODERN THEME INSTALLER             ${NC}"
     echo -e "${CYAN}                Version ${SCRIPT_VERSION}                  ${NC}"
     echo -e "${CYAN}====================================================${NC}"
+    echo -e "${BLUE}Theme Version: ${THEME_VERSION} | Plugin Version: ${PLUGIN_VERSION}${NC}"
     echo ""
 }
 
@@ -87,6 +92,16 @@ log_message() {
     fi
 }
 
+# Initialize log file
+init_log_file() {
+    echo "[$(date +"%Y-%m-%d %H:%M:%S")] Derleiti Modern Theme Installation - v${SCRIPT_VERSION}" > "$LOG_FILE"
+    echo "[$(date +"%Y-%m-%d %H:%M:%S")] System: $(uname -a)" >> "$LOG_FILE"
+    if command_exists php; then
+        echo "[$(date +"%Y-%m-%d %H:%M:%S")] PHP Version: $(php -r 'echo PHP_VERSION;')" >> "$LOG_FILE"
+    fi
+    echo "[$(date +"%Y-%m-%d %H:%M:%S")] ----------------------------------------" >> "$LOG_FILE"
+}
+
 # Execute command and log output with error capture
 execute_command() {
     local description="$1"
@@ -130,32 +145,521 @@ check_php_version() {
         PHP_VERSION=$(php -r 'echo PHP_VERSION;')
         if [[ $(php -r "echo version_compare('$PHP_VERSION', '$MIN_PHP_VERSION', '>=') ? '1' : '0';") == "1" ]]; then
             print_success "PHP Version: $PHP_VERSION"
+            
+            # Check for required extensions
             missing_extensions=""
-            for ext in mbstring xml gd zip curl json; do
+            required_extensions=("mbstring" "xml" "gd" "zip" "curl" "json" "mysqli")
+            
+            for ext in "${required_extensions[@]}"; do
                 if ! php -m | grep -qi "$ext"; then
                     missing_extensions="$missing_extensions $ext"
                 fi
             done
+            
+            # Optional but recommended extensions
+            optional_extensions=("imagick" "intl" "opcache")
+            missing_optional=""
+            
+            for ext in "${optional_extensions[@]}"; do
+                if ! php -m | grep -qi "$ext"; then
+                    missing_optional="$missing_optional $ext"
+                fi
+            done
+            
             if [ -n "$missing_extensions" ]; then
-                print_warning "Some recommended PHP extensions are missing:$missing_extensions"
-                print_info "These extensions are recommended for optimal performance."
+                print_error "Required PHP extensions are missing:$missing_extensions"
+                print_info "These extensions are necessary for Derleiti Modern Theme to function correctly."
+                return 1
             fi
+            
+            if [ -n "$missing_optional" ]; then
+                print_warning "Some recommended PHP extensions are missing:$missing_optional"
+                print_info "These extensions are recommended for optimal performance, but not required."
+            fi
+            
             return 0
         else
-            print_warning "PHP Version $PHP_VERSION is not supported. Required: $MIN_PHP_VERSION or higher."
+            print_error "PHP Version $PHP_VERSION is not supported. Required: $MIN_PHP_VERSION or higher."
             print_info "Please update your PHP installation."
             return 1
         fi
     else
-        print_warning "PHP is not installed."
+        print_error "PHP is not installed or not accessible in the PATH."
         return 1
     fi
 }
 
-# The following functions (create_directory, check_required_files, check_dependencies, download_file, safe_copy, init_log_file, display_summary, install_theme, install_plugin) remain largely the same as in previous versions.
-# (For brevity, assume they are implemented as in previous sections and work correctly.)
+# Check if WordPress version meets requirements
+check_wp_version() {
+    if [ ! -f "$WP_PATH/wp-includes/version.php" ]; then
+        print_warning "Cannot determine WordPress version (wp-includes/version.php not found)"
+        return 1
+    fi
 
-# Main installation function and plugin installation function are assumed to be implemented.
+    # Extract WordPress version from version.php file
+    WP_VERSION=$(grep "wp_version =" "$WP_PATH/wp-includes/version.php" | sed "s/.*'\(.*\)'.*/\1/")
+    
+    if [ -z "$WP_VERSION" ]; then
+        print_warning "Could not extract WordPress version"
+        return 1
+    fi
+    
+    if [[ $(php -r "echo version_compare('$WP_VERSION', '$MIN_WP_VERSION', '>=') ? '1' : '0';") == "1" ]]; then
+        print_success "WordPress Version: $WP_VERSION"
+        
+        if [[ $(php -r "echo version_compare('$WP_VERSION', '$RECOMMENDED_WP_VERSION', '>=') ? '1' : '0';") == "0" ]]; then
+            print_warning "Your WordPress version is below the recommended version ($RECOMMENDED_WP_VERSION)"
+            print_info "The theme will work, but updating is recommended for best experience"
+        fi
+        
+        return 0
+    else
+        print_error "WordPress Version $WP_VERSION is below the minimum required version ($MIN_WP_VERSION)"
+        print_info "Please update your WordPress installation before proceeding"
+        return 1
+    fi
+}
+
+# Check if required dependencies are present
+check_dependencies() {
+    print_section "Checking Dependencies"
+    
+    local missing_deps=0
+    
+    # Required tools
+    required_tools=("wget" "unzip" "chmod" "php")
+    
+    for tool in "${required_tools[@]}"; do
+        if command_exists "$tool"; then
+            print_success "$tool is installed"
+        else
+            print_error "$tool is not installed"
+            missing_deps=1
+        fi
+    done
+    
+    # Optional but useful tools
+    optional_tools=("curl" "rsync")
+    
+    for tool in "${optional_tools[@]}"; do
+        if command_exists "$tool"; then
+            print_success "$tool is installed"
+        else
+            print_warning "$tool is not installed (optional)"
+        fi
+    done
+    
+    check_php_version
+    php_status=$?
+    
+    if [ $missing_deps -eq 1 ] || [ $php_status -eq 1 ]; then
+        print_error "Some required dependencies are missing. Please install them and try again."
+        return 1
+    fi
+    
+    print_success "All required dependencies are installed"
+    return 0
+}
+
+# Create directory safely with proper permissions
+create_directory() {
+    local dir="$1"
+    local success_message="$2"
+    
+    if [ ! -d "$dir" ]; then
+        print_progress "Creating directory $dir"
+        if mkdir -p "$dir"; then
+            # Set secure default permissions
+            chmod 755 "$dir"
+            print_success "$success_message"
+            return 0
+        else
+            print_error "Failed to create directory: $dir"
+            return 1
+        fi
+    else
+        print_info "Directory already exists: $dir"
+        return 0
+    fi
+}
+
+# Check if required files exist in the theme package
+check_required_files() {
+    local theme_dir="$1"
+    required_files=("style.css" "functions.php" "index.php" "footer.php" "header.php")
+    
+    for file in "${required_files[@]}"; do
+        if [ ! -f "$theme_dir/$file" ]; then
+            print_error "Missing required theme file: $file"
+            return 1
+        fi
+    done
+    
+    print_success "All required theme files are present"
+    return 0
+}
+
+# Backup existing theme or plugin if it exists
+backup_existing() {
+    local target_dir="$1"
+    local type="$2"  # "theme" or "plugin"
+    
+    if [ -d "$target_dir" ]; then
+        print_info "Existing $type found at $target_dir"
+        echo -e "${YELLOW}Would you like to backup the existing $type before replacing it? (j/n)${NC}"
+        read -p "> " DO_BACKUP
+        
+        if [[ "$DO_BACKUP" == "j" || "$DO_BACKUP" == "J" ]]; then
+            # Create backup directory if it doesn't exist
+            if ! create_directory "$BACKUP_DIR" "Backup directory created"; then
+                print_error "Failed to create backup directory"
+                return 1
+            fi
+            
+            backup_name=$(basename "$target_dir")_$(date +%Y%m%d_%H%M%S)
+            backup_path="$BACKUP_DIR/$backup_name"
+            
+            print_progress "Backing up existing $type to $backup_path"
+            
+            if cp -r "$target_dir" "$backup_path"; then
+                print_success "Existing $type backed up successfully"
+            else
+                print_error "Failed to backup existing $type"
+                echo -e "${YELLOW}Do you want to continue anyway? (j/n)${NC}"
+                read -p "> " CONTINUE_WITHOUT_BACKUP
+                if [[ "$CONTINUE_WITHOUT_BACKUP" != "j" && "$CONTINUE_WITHOUT_BACKUP" != "J" ]]; then
+                    return 1
+                fi
+            fi
+        fi
+    fi
+    
+    return 0
+}
+
+# Download file with progress and verification
+download_file() {
+    local url="$1"
+    local output_file="$2"
+    local description="$3"
+    
+    print_progress "Downloading $description"
+    
+    if command_exists wget; then
+        if wget --show-progress -q "$url" -O "$output_file"; then
+            print_success "Downloaded $description successfully"
+        else
+            print_error "Failed to download $description"
+            return 1
+        fi
+    elif command_exists curl; then
+        if curl -L --progress-bar "$url" -o "$output_file"; then
+            print_success "Downloaded $description successfully"
+        else
+            print_error "Failed to download $description"
+            return 1
+        fi
+    else
+        print_error "Neither wget nor curl is available for downloading"
+        return 1
+    fi
+    
+    # Verify downloaded file
+    if [ ! -f "$output_file" ] || [ ! -s "$output_file" ]; then
+        print_error "Downloaded file is empty or not found"
+        return 1
+    fi
+    
+    return 0
+}
+
+# Copy files safely with permission setting
+safe_copy() {
+    local source="$1"
+    local destination="$2"
+    local description="$3"
+    
+    print_progress "Installing $description"
+    
+    if [ -d "$source" ]; then
+        # Directory copy
+        if cp -r "$source"/* "$destination/"; then
+            find "$destination" -type d -exec chmod 755 {} \;
+            find "$destination" -type f -exec chmod 644 {} \;
+            print_success "$description installed successfully"
+            return 0
+        else
+            print_error "Failed to copy $description files"
+            return 1
+        fi
+    elif [ -f "$source" ]; then
+        # File copy
+        if cp "$source" "$destination/"; then
+            chmod 644 "$destination/$(basename "$source")"
+            print_success "$description installed successfully"
+            return 0
+        else
+            print_error "Failed to copy $description file"
+            return 1
+        fi
+    else
+        print_error "Source does not exist: $source"
+        return 1
+    fi
+}
+
+# Install Derleiti Modern Theme
+install_theme() {
+    print_section "Installing Derleiti Modern Theme"
+    
+    # Backup existing theme if present
+    backup_existing "$THEME_PATH" "theme" || return 1
+    
+    # Create theme directory
+    if [ -d "$THEME_PATH" ]; then
+        print_info "Cleaning existing theme directory"
+        rm -rf "$THEME_PATH"/*
+    fi
+    
+    if ! create_directory "$THEME_PATH" "Theme directory created"; then
+        print_error "Failed to create theme directory"
+        return 1
+    fi
+    
+    # Option to install from local files or download
+    echo -e "${YELLOW}Install theme from: ${NC}"
+    echo -e "1. Local files (if you have theme files downloaded)"
+    echo -e "2. Download from the web"
+    read -p "> " INSTALL_SOURCE
+    
+    if [ "$INSTALL_SOURCE" == "1" ]; then
+        echo -e "${YELLOW}Please enter the path to the theme files:${NC}"
+        read -p "> " THEME_SOURCE
+        
+        if [ ! -d "$THEME_SOURCE" ]; then
+            print_error "Source directory does not exist: $THEME_SOURCE"
+            return 1
+        fi
+        
+        # Check if it's a proper theme directory
+        if [ ! -f "$THEME_SOURCE/style.css" ]; then
+            print_error "Not a valid theme directory (style.css missing)"
+            return 1
+        }
+
+        safe_copy "$THEME_SOURCE" "$THEME_PATH" "Derleiti Modern Theme"
+    else
+        # Download from the web (example URL - replace with actual URL)
+        THEME_URL="https://downloads.derleiti.de/themes/derleiti-modern-${THEME_VERSION}.zip"
+        THEME_ZIP="/tmp/derleiti-modern.zip"
+        
+        download_file "$THEME_URL" "$THEME_ZIP" "Derleiti Modern Theme" || return 1
+        
+        print_progress "Extracting theme files"
+        if ! unzip -q "$THEME_ZIP" -d "/tmp/derleiti-theme"; then
+            print_error "Failed to extract theme files"
+            return 1
+        fi
+        
+        # Find the theme directory in the extracted files
+        THEME_EXTRACTED_DIR=$(find /tmp/derleiti-theme -type d -name "derleiti-modern*" | head -n 1)
+        
+        if [ -z "$THEME_EXTRACTED_DIR" ]; then
+            print_error "Failed to find theme directory in the extracted files"
+            return 1
+        }
+        
+        safe_copy "$THEME_EXTRACTED_DIR" "$THEME_PATH" "Derleiti Modern Theme"
+        
+        # Clean up
+        rm -f "$THEME_ZIP"
+        rm -rf "/tmp/derleiti-theme"
+    fi
+    
+    # Verify theme installation
+    if ! check_required_files "$THEME_PATH"; then
+        print_error "Theme installation failed: Missing required files"
+        return 1
+    fi
+    
+    print_success "Derleiti Modern Theme installed successfully"
+    return 0
+}
+
+# Install Derleiti Plugin
+install_plugin() {
+    print_section "Installing Derleiti Modern Theme Plugin"
+    
+    # Backup existing plugin if present
+    backup_existing "$PLUGIN_PATH" "plugin" || return 1
+    
+    # Create plugin directory
+    if [ -d "$PLUGIN_PATH" ]; then
+        print_info "Cleaning existing plugin directory"
+        rm -rf "$PLUGIN_PATH"/*
+    fi
+    
+    if ! create_directory "$PLUGIN_PATH" "Plugin directory created"; then
+        print_error "Failed to create plugin directory"
+        return 1
+    fi
+    
+    # Option to install from local files or download
+    echo -e "${YELLOW}Install plugin from: ${NC}"
+    echo -e "1. Local files (if you have plugin files downloaded)"
+    echo -e "2. Download from the web"
+    read -p "> " INSTALL_SOURCE
+    
+    if [ "$INSTALL_SOURCE" == "1" ]; then
+        echo -e "${YELLOW}Please enter the path to the plugin files:${NC}"
+        read -p "> " PLUGIN_SOURCE
+        
+        if [ ! -d "$PLUGIN_SOURCE" ]; then
+            print_error "Source directory does not exist: $PLUGIN_SOURCE"
+            return 1
+        fi
+        
+        # Check if it's a proper plugin directory
+        if [ ! -f "$PLUGIN_SOURCE/derleiti-plugin.php" ]; then
+            print_error "Not a valid plugin directory (derleiti-plugin.php missing)"
+            return 1
+        }
+
+        safe_copy "$PLUGIN_SOURCE" "$PLUGIN_PATH" "Derleiti Plugin"
+    else
+        # Download from the web (example URL - replace with actual URL)
+        PLUGIN_URL="https://downloads.derleiti.de/plugins/derleiti-plugin-${PLUGIN_VERSION}.zip"
+        PLUGIN_ZIP="/tmp/derleiti-plugin.zip"
+        
+        download_file "$PLUGIN_URL" "$PLUGIN_ZIP" "Derleiti Plugin" || return 1
+        
+        print_progress "Extracting plugin files"
+        if ! unzip -q "$PLUGIN_ZIP" -d "/tmp/derleiti-plugin"; then
+            print_error "Failed to extract plugin files"
+            return 1
+        fi
+        
+        # Find the plugin directory in the extracted files
+        PLUGIN_EXTRACTED_DIR=$(find /tmp/derleiti-plugin -type d -name "derleiti-plugin*" | head -n 1)
+        
+        if [ -z "$PLUGIN_EXTRACTED_DIR" ]; then
+            print_error "Failed to find plugin directory in the extracted files"
+            return 1
+        }
+        
+        safe_copy "$PLUGIN_EXTRACTED_DIR" "$PLUGIN_PATH" "Derleiti Plugin"
+        
+        # Clean up
+        rm -f "$PLUGIN_ZIP"
+        rm -rf "/tmp/derleiti-plugin"
+    fi
+    
+    # Verify plugin installation
+    if [ ! -f "$PLUGIN_PATH/derleiti-plugin.php" ]; then
+        print_error "Plugin installation failed: Main plugin file missing"
+        return 1
+    fi
+    
+    print_success "Derleiti Plugin installed successfully"
+    return 0
+}
+
+# Verify theme and plugin compatibility
+verify_compatibility() {
+    print_section "Verifying Compatibility"
+    
+    # Check if both theme and plugin are installed
+    if [ ! -f "$THEME_PATH/style.css" ]; then
+        print_error "Theme is not installed properly"
+        return 1
+    fi
+    
+    if [ "$INSTALL_PLUGIN" = "j" ] || [ "$INSTALL_PLUGIN" = "J" ]; then
+        if [ ! -f "$PLUGIN_PATH/derleiti-plugin.php" ]; then
+            print_warning "Plugin is not installed properly"
+        else
+            # Extract plugin version
+            INSTALLED_PLUGIN_VERSION=$(grep "Version:" "$PLUGIN_PATH/derleiti-plugin.php" | head -n 1 | sed 's/.*Version: \([0-9.]*\).*/\1/')
+            
+            if [ -z "$INSTALLED_PLUGIN_VERSION" ]; then
+                print_warning "Could not determine plugin version"
+            else
+                print_success "Plugin version: $INSTALLED_PLUGIN_VERSION"
+            fi
+        fi
+    fi
+    
+    # Extract theme version
+    INSTALLED_THEME_VERSION=$(grep "Version:" "$THEME_PATH/style.css" | head -n 1 | sed 's/.*Version: \([0-9.]*\).*/\1/')
+    
+    if [ -z "$INSTALLED_THEME_VERSION" ]; then
+        print_warning "Could not determine theme version"
+    else
+        print_success "Theme version: $INSTALLED_THEME_VERSION"
+    fi
+    
+    # Check WordPress compatibility from theme style.css
+    WP_REQUIRES=$(grep "Requires at least:" "$THEME_PATH/style.css" | sed 's/.*Requires at least: \([0-9.]*\).*/\1/')
+    WP_TESTED=$(grep "Tested up to:" "$THEME_PATH/style.css" | sed 's/.*Tested up to: \([0-9.]*\).*/\1/')
+    PHP_REQUIRES=$(grep "Requires PHP:" "$THEME_PATH/style.css" | sed 's/.*Requires PHP: \([0-9.]*\).*/\1/')
+    
+    if [ -n "$WP_REQUIRES" ]; then
+        print_info "Theme requires WordPress: $WP_REQUIRES+"
+    fi
+    
+    if [ -n "$WP_TESTED" ]; then
+        print_info "Theme tested with WordPress: Up to $WP_TESTED"
+    fi
+    
+    if [ -n "$PHP_REQUIRES" ]; then
+        print_info "Theme requires PHP: $PHP_REQUIRES+"
+    fi
+    
+    print_success "Compatibility verification completed"
+    return 0
+}
+
+# Display installation summary
+display_summary() {
+    local theme_success=$1
+    local plugin_success=0
+    
+    if [ "$INSTALL_PLUGIN" = "j" ] || [ "$INSTALL_PLUGIN" = "J" ]; then
+        plugin_success=$2
+    fi
+    
+    print_section "Installation Summary"
+    
+    if [ $theme_success -eq 1 ]; then
+        print_success "Derleiti Modern Theme installed successfully"
+        print_info "Theme directory: $THEME_PATH"
+    else
+        print_error "Derleiti Modern Theme installation failed"
+    fi
+    
+    if [ "$INSTALL_PLUGIN" = "j" ] || [ "$INSTALL_PLUGIN" = "J" ]; then
+        if [ $plugin_success -eq 1 ]; then
+            print_success "Derleiti Plugin installed successfully"
+            print_info "Plugin directory: $PLUGIN_PATH"
+        else
+            print_error "Derleiti Plugin installation failed"
+        fi
+    fi
+    
+    print_info "Log file: $LOG_FILE"
+    
+    if [ -d "$BACKUP_DIR" ]; then
+        print_info "Backups created in: $BACKUP_DIR"
+    fi
+    
+    echo -e "\n${GREEN}${BOLD}Next Steps:${NC}"
+    echo -e "1. ${BLUE}Activate the theme in WordPress Admin > Appearance > Themes${NC}"
+    if [ "$INSTALL_PLUGIN" = "j" ] || [ "$INSTALL_PLUGIN" = "J" ]; then
+        echo -e "2. ${BLUE}Activate the plugin in WordPress Admin > Plugins${NC}"
+        echo -e "3. ${BLUE}Configure the plugin settings in WordPress Admin > Derleiti Theme${NC}"
+    fi
+    echo -e "\n${YELLOW}Need help? Visit ${BLUE}https://derleiti.de/support${NC} for documentation and support.${NC}"
+}
 
 # --- Main script start ---
 init_log_file
@@ -167,6 +671,10 @@ if [ "$1" == "--debug" ]; then
 fi
 
 check_dependencies
+if [ $? -ne 0 ]; then
+    print_error "Missing dependencies. Please install required tools and try again."
+    exit 1
+fi
 
 print_section "WordPress Directory"
 echo -e "${YELLOW}Please enter the full path to the WordPress main directory${NC}"
@@ -192,6 +700,15 @@ fi
 if [ -f "$WP_PATH/wp-config.php" ]; then
     print_success "WordPress installation found"
     check_wp_version
+    WP_VERSION_OK=$?
+    if [ $WP_VERSION_OK -ne 0 ]; then
+        echo -e "${YELLOW}Continue despite WordPress version warning? (j/n)${NC}"
+        read -p "> " CONTINUE_DESPITE_VERSION
+        if [[ "$CONTINUE_DESPITE_VERSION" != "j" && "$CONTINUE_DESPITE_VERSION" != "J" ]]; then
+            print_error "Installation aborted."
+            exit 1
+        fi
+    fi
 else
     print_warning "No WordPress installation found (wp-config.php not present)"
     echo -e "${YELLOW}Do you want to continue anyway? (j/n)${NC}"
@@ -230,12 +747,31 @@ echo -e "${CYAN}The plugin adds AI integration, custom blocks, and other feature
 read -p "> " INSTALL_PLUGIN
 INSTALL_PLUGIN=$(echo "$INSTALL_PLUGIN" | tr '[:upper:]' '[:lower:]')
 
-# Backup and installation steps for theme and plugin follow...
-# (Assume functions install_theme, install_plugin, and display_summary are defined and used here.)
+# Create backup directory if needed
+create_directory "$BACKUP_DIR" "Backup directory created"
 
-# Finally, display installation summary
-if [ -f "$THEME_PATH/style.css" ] && [ -f "$THEME_PATH/js/navigation.js" ]; then
-    display_summary 1
-else
-    display_summary 0
+# Install theme
+install_theme
+THEME_SUCCESS=$?
+
+# Install plugin if requested
+PLUGIN_SUCCESS=0
+if [ "$INSTALL_PLUGIN" = "j" ]; then
+    install_plugin
+    PLUGIN_SUCCESS=$?
 fi
+
+# Verify compatibility if everything was successful
+if [ $THEME_SUCCESS -eq 0 ] && { [ "$INSTALL_PLUGIN" != "j" ] || [ $PLUGIN_SUCCESS -eq 0 ]; }; then
+    verify_compatibility
+fi
+
+# Display installation summary
+display_summary $THEME_SUCCESS $PLUGIN_SUCCESS
+
+# Clean up empty backup directory if no backups were created
+if [ -d "$BACKUP_DIR" ] && [ -z "$(ls -A "$BACKUP_DIR")" ]; then
+    rmdir "$BACKUP_DIR"
+fi
+
+exit 0

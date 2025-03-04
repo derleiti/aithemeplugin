@@ -445,7 +445,7 @@ install_theme() {
         if [ ! -f "$THEME_SOURCE/style.css" ]; then
             print_error "Not a valid theme directory (style.css missing)"
             return 1
-        }
+        fi
 
         safe_copy "$THEME_SOURCE" "$THEME_PATH" "Derleiti Modern Theme"
     else
@@ -467,7 +467,7 @@ install_theme() {
         if [ -z "$THEME_EXTRACTED_DIR" ]; then
             print_error "Failed to find theme directory in the extracted files"
             return 1
-        }
+        fi
         
         safe_copy "$THEME_EXTRACTED_DIR" "$THEME_PATH" "Derleiti Modern Theme"
         
@@ -523,7 +523,7 @@ install_plugin() {
         if [ ! -f "$PLUGIN_SOURCE/derleiti-plugin.php" ]; then
             print_error "Not a valid plugin directory (derleiti-plugin.php missing)"
             return 1
-        }
+        fi
 
         safe_copy "$PLUGIN_SOURCE" "$PLUGIN_PATH" "Derleiti Plugin"
     else
@@ -545,7 +545,7 @@ install_plugin() {
         if [ -z "$PLUGIN_EXTRACTED_DIR" ]; then
             print_error "Failed to find plugin directory in the extracted files"
             return 1
-        }
+        fi
         
         safe_copy "$PLUGIN_EXTRACTED_DIR" "$PLUGIN_PATH" "Derleiti Plugin"
         

@@ -34,7 +34,7 @@ class Derleiti_Admin {
         add_action('admin_menu', [$this, 'register_admin_menus'], 10);
         add_action('admin_init', [$this, 'register_settings'], 20);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets'], 10);
-        
+
         // AJAX handlers with security
         add_action('wp_ajax_derleiti_dismiss_notice', [$this, 'ajax_dismiss_notice']);
         add_action('wp_ajax_derleiti_reset_settings', [$this, 'ajax_reset_settings']);
@@ -51,11 +51,11 @@ class Derleiti_Admin {
      */
     private function ensure_log_directory() {
         $log_dir = self::LOG_DIRECTORY;
-        
+
         // Create directory with proper permissions
         if (!file_exists($log_dir)) {
             wp_mkdir_p($log_dir);
-            
+
             // Add .htaccess to prevent direct access
             $htaccess_path = $log_dir . '.htaccess';
             if (!file_exists($htaccess_path)) {
@@ -66,27 +66,27 @@ class Derleiti_Admin {
 
     /**
      * Secure logging method with enhanced error tracking
-     * 
+     *
      * @param string $message Log message
      * @param string $level Log level (info, warning, error)
      */
     private function log_event($message, $level = 'info') {
         $log_file = self::LOG_DIRECTORY . $level . '_' . date('Y-m-d') . '.log';
-        
+
         $log_entry = sprintf(
-            "[%s] [%s] [%s] %s\n", 
-            current_time('mysql'), 
-            strtoupper($level), 
-            $this->get_current_user_context(),
-            $message
+            "[%s] [%s] [%s] %s\n",
+            current_time('mysql'),
+                             strtoupper($level),
+                             $this->get_current_user_context(),
+                             $message
         );
-        
+
         error_log($log_entry, 3, $log_file);
     }
 
     /**
      * Get current user context for logging
-     * 
+     *
      * @return string User context information
      */
     private function get_current_user_context() {
@@ -96,28 +96,28 @@ class Derleiti_Admin {
 
     /**
      * Rate limiting mechanism for admin actions
-     * 
+     *
      * @param string $action Unique action identifier
      * @return bool True if action is allowed, false if rate limited
      */
     private function check_rate_limit($action) {
         $user_id = get_current_user_id();
         $transient_key = self::RATE_LIMIT_TRANSIENT . $user_id . '_' . $action;
-        
+
         // Get current action count
         $action_count = get_transient($transient_key);
-        
+
         if ($action_count === false) {
             // First action, set initial count
             set_transient($transient_key, 1, self::ACTION_PERIOD);
             return true;
         }
-        
+
         if ($action_count >= self::MAX_ACTIONS) {
             $this->log_event("Rate limit exceeded for action: {$action}", 'warning');
             return false;
         }
-        
+
         // Increment action count
         set_transient($transient_key, $action_count + 1, self::ACTION_PERIOD);
         return true;
@@ -130,12 +130,12 @@ class Derleiti_Admin {
         // Main plugin settings page
         add_menu_page(
             __('Derleiti Plugin', 'derleiti-plugin'),
-            __('Derleiti', 'derleiti-plugin'),
-            'manage_options',
-            'derleiti-settings',
-            [$this, 'render_main_settings_page'],
-            'dashicons-admin-generic',
-            30
+                      __('Derleiti', 'derleiti-plugin'),
+                      'manage_options',
+                      'derleiti-settings',
+                      [$this, 'render_main_settings_page'],
+                      'dashicons-admin-generic',
+                      30
         );
 
         // Submenu pages
@@ -180,7 +180,7 @@ class Derleiti_Admin {
 
     /**
      * Enqueue admin assets with version control and security
-     * 
+     *
      * @param string $hook Current admin page hook
      */
     public function enqueue_admin_assets($hook) {
@@ -212,13 +212,13 @@ class Derleiti_Admin {
             'derleitiAdminData',
             [
                 'ajaxUrl' => admin_url('admin-ajax.php'),
-                'restUrl' => esc_url_raw(rest_url('derleiti-plugin/v1/')),
-                'nonce' => wp_create_nonce(self::NONCE_ACTION),
-                'strings' => [
-                    'saveSuccess' => __('Einstellungen gespeichert!', 'derleiti-plugin'),
-                    'saveError' => __('Fehler beim Speichern der Einstellungen.', 'derleiti-plugin'),
-                    'confirmReset' => __('Möchten Sie wirklich alle Einstellungen zurücksetzen?', 'derleiti-plugin')
-                ]
+                           'restUrl' => esc_url_raw(rest_url('derleiti-plugin/v1/')),
+                           'nonce'   => wp_create_nonce(self::NONCE_ACTION),
+                           'strings' => [
+                               'saveSuccess'  => __('Einstellungen gespeichert!', 'derleiti-plugin'),
+                           'saveError'    => __('Fehler beim Speichern der Einstellungen.', 'derleiti-plugin'),
+                           'confirmReset' => __('Möchten Sie wirklich alle Einstellungen zurücksetzen?', 'derleiti-plugin')
+                           ]
             ]
         );
     }
@@ -227,8 +227,9 @@ class Derleiti_Admin {
      * AJAX handler to dismiss admin notices
      */
     public function ajax_dismiss_notice() {
-        // Verify nonce
-        check_ajax_referer(self::NONCE_ACTION, self::NONCE_NAME);
+        // Verify nonce – hier wird jetzt der Schlüssel "nonce" geprüft,
+        // der im JavaScript verwendet wird.
+        check_ajax_referer(self::NONCE_ACTION, 'nonce');
 
         // Check user capabilities
         if (!current_user_can('manage_options')) {
@@ -242,7 +243,7 @@ class Derleiti_Admin {
 
         // Sanitize notice ID
         $notice_id = sanitize_key($_POST['notice'] ?? '');
-        
+
         if (empty($notice_id)) {
             wp_send_json_error(__('Ungültige Benachrichtigungs-ID.', 'derleiti-plugin'));
         }
@@ -268,8 +269,8 @@ class Derleiti_Admin {
      * AJAX handler to reset settings
      */
     public function ajax_reset_settings() {
-        // Verify nonce
-        check_ajax_referer(self::NONCE_ACTION, self::NONCE_NAME);
+        // Verify nonce – hier wird ebenfalls der Schlüssel "nonce" genutzt.
+        check_ajax_referer(self::NONCE_ACTION, 'nonce');
 
         // Check user capabilities
         if (!current_user_can('manage_options')) {
@@ -325,8 +326,8 @@ class Derleiti_Admin {
         $table_name = $wpdb->prefix . 'derleiti_settings';
 
         $wpdb->delete(
-            $table_name, 
-            ['category' => 'general'], 
+            $table_name,
+            ['category' => 'general'],
             ['%s']
         );
     }
@@ -339,8 +340,8 @@ class Derleiti_Admin {
         $table_name = $wpdb->prefix . 'derleiti_settings';
 
         $wpdb->delete(
-            $table_name, 
-            ['category' => 'performance'], 
+            $table_name,
+            ['category' => 'performance'],
             ['%s']
         );
     }
@@ -353,8 +354,8 @@ class Derleiti_Admin {
         $table_name = $wpdb->prefix . 'derleiti_settings';
 
         $wpdb->delete(
-            $table_name, 
-            ['category' => 'ai'], 
+            $table_name,
+            ['category' => 'ai'],
             ['%s']
         );
     }
@@ -434,7 +435,7 @@ class Derleiti_Admin {
         wp_add_dashboard_widget(
             'derleiti_plugin_dashboard_widget',
             __('Derleiti Plugin Status', 'derleiti-plugin'),
-            [$this, 'render_dashboard_widget']
+                                [$this, 'render_dashboard_widget']
         );
     }
 
@@ -448,53 +449,53 @@ class Derleiti_Admin {
         // Output dashboard widget HTML
         ?>
         <div class="derleiti-dashboard-widget">
-            <div class="widget-content">
-                <div class="plugin-status">
-                    <h3><?php _e('Plugin-Status', 'derleiti-plugin'); ?></h3>
-                    <ul>
-                        <li>
-                            <strong><?php _e('Version:', 'derleiti-plugin'); ?></strong>
-                            <?php echo esc_html(DERLEITI_PLUGIN_VERSION); ?>
-                        </li>
-                        <li>
-                            <strong><?php _e('AI-Integration:', 'derleiti-plugin'); ?></strong>
-                            <?php echo $stats['ai_enabled'] ? __('Aktiviert', 'derleiti-plugin') : __('Deaktiviert', 'derleiti-plugin'); ?>
-                        </li>
-                        <li>
-                            <strong><?php _e('Performance-Optimierung:', 'derleiti-plugin'); ?></strong>
-                            <?php echo $stats['performance_enabled'] ? __('Aktiviert', 'derleiti-plugin') : __('Deaktiviert', 'derleiti-plugin'); ?>
-                        </li>
-                    </ul>
-                </div>
+        <div class="widget-content">
+        <div class="plugin-status">
+        <h3><?php _e('Plugin-Status', 'derleiti-plugin'); ?></h3>
+        <ul>
+        <li>
+        <strong><?php _e('Version:', 'derleiti-plugin'); ?></strong>
+        <?php echo esc_html(DERLEITI_PLUGIN_VERSION); ?>
+        </li>
+        <li>
+        <strong><?php _e('AI-Integration:', 'derleiti-plugin'); ?></strong>
+        <?php echo $stats['ai_enabled'] ? __('Aktiviert', 'derleiti-plugin') : __('Deaktiviert', 'derleiti-plugin'); ?>
+        </li>
+        <li>
+        <strong><?php _e('Performance-Optimierung:', 'derleiti-plugin'); ?></strong>
+        <?php echo $stats['performance_enabled'] ? __('Aktiviert', 'derleiti-plugin') : __('Deaktiviert', 'derleiti-plugin'); ?>
+        </li>
+        </ul>
+        </div>
 
-                <div class="recent-actions">
-                    <h3><?php _e('Letzte Aktionen', 'derleiti-plugin'); ?></h3>
-                    <?php if (!empty($stats['recent_actions'])): ?>
-                        <ul>
-                            <?php foreach ($stats['recent_actions'] as $action): ?>
-                                <li>
-                                    <?php echo esc_html($action['description']); ?>
-                                    <small>(<?php echo esc_html($action['time']); ?>)</small>
-                                </li>
-                            <?php endforeach; ?>
-                        </ul>
-                    <?php else: ?>
-                        <p><?php _e('Keine kürzlichen Aktionen', 'derleiti-plugin'); ?></p>
-                    <?php endif; ?>
-                </div>
+        <div class="recent-actions">
+        <h3><?php _e('Letzte Aktionen', 'derleiti-plugin'); ?></h3>
+        <?php if (!empty($stats['recent_actions'])): ?>
+        <ul>
+        <?php foreach ($stats['recent_actions'] as $action): ?>
+        <li>
+        <?php echo esc_html($action['description']); ?>
+        <small>(<?php echo esc_html($action['time']); ?>)</small>
+        </li>
+        <?php endforeach; ?>
+        </ul>
+        <?php else: ?>
+        <p><?php _e('Keine kürzlichen Aktionen', 'derleiti-plugin'); ?></p>
+        <?php endif; ?>
+        </div>
 
-                <div class="quick-actions">
-                    <h3><?php _e('Schnellaktionen', 'derleiti-plugin'); ?></h3>
-                    <div class="action-buttons">
-                        <a href="<?php echo esc_url(admin_url('admin.php?page=derleiti-settings')); ?>" class="button button-primary">
-                            <?php _e('Plugin-Einstellungen', 'derleiti-plugin'); ?>
-                        </a>
-                        <a href="<?php echo esc_url(admin_url('admin.php?page=derleiti-performance')); ?>" class="button">
-                            <?php _e('Performance', 'derleiti-plugin'); ?>
-                        </a>
-                    </div>
-                </div>
-            </div>
+        <div class="quick-actions">
+        <h3><?php _e('Schnellaktionen', 'derleiti-plugin'); ?></h3>
+        <div class="action-buttons">
+        <a href="<?php echo esc_url(admin_url('admin.php?page=derleiti-settings')); ?>" class="button button-primary">
+        <?php _e('Plugin-Einstellungen', 'derleiti-plugin'); ?>
+        </a>
+        <a href="<?php echo esc_url(admin_url('admin.php?page=derleiti-performance')); ?>" class="button">
+        <?php _e('Performance', 'derleiti-plugin'); ?>
+        </a>
+        </div>
+        </div>
+        </div>
         </div>
         <?php
     }
@@ -554,7 +555,7 @@ class Derleiti_Admin {
             'settings' => sprintf(
                 '<a href="%s">%s</a>',
                 esc_url(admin_url('admin.php?page=derleiti-settings')),
-                __('Einstellungen', 'derleiti-plugin')
+                                  __('Einstellungen', 'derleiti-plugin')
             ),
             'support' => sprintf(
                 '<a href="%s" target="_blank">%s</a>',
@@ -574,18 +575,18 @@ class Derleiti_Admin {
         // Register settings groups
         $settings_groups = [
             'derleiti_general_settings' => [
-                'section' => 'derleiti_general_section',
-                'title' => __('Allgemeine Einstellungen', 'derleiti-plugin'),
+                'section'  => 'derleiti_general_section',
+                'title'    => __('Allgemeine Einstellungen', 'derleiti-plugin'),
                 'callback' => [$this, 'render_general_section']
             ],
             'derleiti_performance_settings' => [
-                'section' => 'derleiti_performance_section',
-                'title' => __('Performance-Einstellungen', 'derleiti-plugin'),
+                'section'  => 'derleiti_performance_section',
+                'title'    => __('Performance-Einstellungen', 'derleiti-plugin'),
                 'callback' => [$this, 'render_performance_section']
             ],
             'derleiti_ai_settings' => [
-                'section' => 'derleiti_ai_section',
-                'title' => __('KI-Einstellungen', 'derleiti-plugin'),
+                'section'  => 'derleiti_ai_section',
+                'title'    => __('KI-Einstellungen', 'derleiti-plugin'),
                 'callback' => [$this, 'render_ai_section']
             ]
         ];
@@ -595,7 +596,7 @@ class Derleiti_Admin {
             register_setting(
                 $group,
                 'derleiti_' . str_replace('derleiti_', '', $group) . '_options',
-                [$this, 'sanitize_settings']
+                             [$this, 'sanitize_settings']
             );
 
             add_settings_section(
@@ -619,9 +620,9 @@ class Derleiti_Admin {
         add_settings_field(
             'site_logo',
             __('Site Logo', 'derleiti-plugin'),
-            [$this, 'render_logo_upload_field'],
-            'derleiti_general_settings',
-            'derleiti_general_section'
+                           [$this, 'render_logo_upload_field'],
+                           'derleiti_general_settings',
+                           'derleiti_general_section'
         );
     }
 
@@ -632,9 +633,9 @@ class Derleiti_Admin {
         add_settings_field(
             'lazy_load_images',
             __('Lazy Loading', 'derleiti-plugin'),
-            [$this, 'render_lazy_load_field'],
-            'derleiti_performance_settings',
-            'derleiti_performance_section'
+                           [$this, 'render_lazy_load_field'],
+                           'derleiti_performance_settings',
+                           'derleiti_performance_section'
         );
     }
 
@@ -645,9 +646,9 @@ class Derleiti_Admin {
         add_settings_field(
             'ai_provider',
             __('KI-Anbieter', 'derleiti-plugin'),
-            [$this, 'render_ai_provider_field'],
-            'derleiti_ai_settings',
-            'derleiti_ai_section'
+                           [$this, 'render_ai_provider_field'],
+                           'derleiti_ai_settings',
+                           'derleiti_ai_section'
         );
     }
 
@@ -691,24 +692,24 @@ class Derleiti_Admin {
         $logo_url = $options['site_logo'] ?? '';
         ?>
         <div class="derleiti-logo-upload">
-            <input
-                type="text"
-                id="site_logo"
-                name="derleiti_general_settings_options[site_logo]"
-                value="<?php echo esc_attr($logo_url); ?>"
-                class="regular-text"
-            >
-            <button type="button" class="button derleiti-upload-logo">
-                <?php _e('Logo auswählen', 'derleiti-plugin'); ?>
-            </button>
+        <input
+        type="text"
+        id="site_logo"
+        name="derleiti_general_settings_options[site_logo]"
+        value="<?php echo esc_attr($logo_url); ?>"
+        class="regular-text"
+        >
+        <button type="button" class="button derleiti-upload-logo">
+        <?php _e('Logo auswählen', 'derleiti-plugin'); ?>
+        </button>
 
-            <?php if (!empty($logo_url)): ?>
-                <img
-                    src="<?php echo esc_url($logo_url); ?>"
-                    alt="<?php _e('Site Logo', 'derleiti-plugin'); ?>"
-                    style="max-width: 200px; margin-top: 10px;"
-                >
-            <?php endif; ?>
+        <?php if (!empty($logo_url)): ?>
+        <img
+        src="<?php echo esc_url($logo_url); ?>"
+        alt="<?php _e('Site Logo', 'derleiti-plugin'); ?>"
+        style="max-width: 200px; margin-top: 10px;"
+        >
+        <?php endif; ?>
         </div>
         <?php
     }
@@ -721,16 +722,16 @@ class Derleiti_Admin {
         $lazy_load = $options['lazy_load_images'] ?? 0;
         ?>
         <label>
-            <input
-                type="checkbox"
-                name="derleiti_performance_settings_options[lazy_load_images]"
-                value="1"
-                <?php checked(1, $lazy_load); ?>
-            >
-            <?php _e('Lazy Loading für Bilder aktivieren', 'derleiti-plugin'); ?>
+        <input
+        type="checkbox"
+        name="derleiti_performance_settings_options[lazy_load_images]"
+        value="1"
+        <?php checked(1, $lazy_load); ?>
+        >
+        <?php _e('Lazy Loading für Bilder aktivieren', 'derleiti-plugin'); ?>
         </label>
         <p class="description">
-            <?php _e('Verbessert die Ladegeschwindigkeit, indem Bilder erst geladen werden, wenn sie sichtbar sind.', 'derleiti-plugin'); ?>
+        <?php _e('Verbessert die Ladegeschwindigkeit, indem Bilder erst geladen werden, wenn sie sichtbar sind.', 'derleiti-plugin'); ?>
         </p>
         <?php
     }
@@ -743,26 +744,26 @@ class Derleiti_Admin {
         $current_provider = $options['ai_provider'] ?? 'openai';
 
         $providers = [
-            'openai' => 'OpenAI',
+            'openai'    => 'OpenAI',
             'anthropic' => 'Anthropic',
-            'google' => 'Google'
+            'google'    => 'Google'
         ];
         ?>
         <select
-            name="derleiti_ai_settings_options[ai_provider]"
-            id="ai_provider"
+        name="derleiti_ai_settings_options[ai_provider]"
+        id="ai_provider"
         >
-            <?php foreach ($providers as $provider_key => $provider_name): ?>
-                <option
-                    value="<?php echo esc_attr($provider_key); ?>"
-                    <?php selected($current_provider, $provider_key); ?>
-                >
-                    <?php echo esc_html($provider_name); ?>
-                </option>
-            <?php endforeach; ?>
+        <?php foreach ($providers as $provider_key => $provider_name): ?>
+        <option
+        value="<?php echo esc_attr($provider_key); ?>"
+        <?php selected($current_provider, $provider_key); ?>
+        >
+        <?php echo esc_html($provider_name); ?>
+        </option>
+        <?php endforeach; ?>
         </select>
         <p class="description">
-            <?php _e('Wählen Sie den Standard-KI-Anbieter für Ihre Inhalte.', 'derleiti-plugin'); ?>
+        <?php _e('Wählen Sie den Standard-KI-Anbieter für Ihre Inhalte.', 'derleiti-plugin'); ?>
         </p>
         <?php
     }

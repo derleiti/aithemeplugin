@@ -36,14 +36,14 @@ class Derleiti_Tools {
         // Performance and image optimization hooks
         add_action('wp_handle_upload_prefilter', [$this, 'validate_upload']);
         add_filter('wp_handle_upload', [$this, 'process_uploaded_images'], 10, 2);
-        
-        // Enhanced shortcodes
+
+        // Register advanced shortcodes
         $this->register_advanced_shortcodes();
 
-        // SEO and performance optimizations
+        // Add performance-related resource hints
         add_action('wp_head', [$this, 'add_performance_hints'], 2);
-        
-        // Security headers
+
+        // Add security headers
         add_action('send_headers', [$this, 'add_security_headers']);
     }
 
@@ -52,12 +52,8 @@ class Derleiti_Tools {
      */
     private function ensure_log_directory() {
         $log_dir = self::LOG_DIRECTORY;
-        
-        // Create directory with proper permissions
         if (!file_exists($log_dir)) {
             wp_mkdir_p($log_dir);
-            
-            // Add .htaccess to prevent direct access
             $htaccess_path = $log_dir . '.htaccess';
             if (!file_exists($htaccess_path)) {
                 file_put_contents($htaccess_path, "Deny from all\n");
@@ -67,27 +63,25 @@ class Derleiti_Tools {
 
     /**
      * Secure logging method with enhanced error tracking
-     * 
+     *
      * @param string $message Log message
      * @param string $level Log level (info, warning, error)
      */
     private function log_event($message, $level = 'info') {
         $log_file = self::LOG_DIRECTORY . $level . '_' . date('Y-m-d') . '.log';
-        
         $log_entry = sprintf(
-            "[%s] [%s] [%s] %s\n", 
-            current_time('mysql'), 
-            strtoupper($level), 
-            $this->get_current_user_context(),
-            $message
+            "[%s] [%s] [%s] %s\n",
+            current_time('mysql'),
+                             strtoupper($level),
+                             $this->get_current_user_context(),
+                             $message
         );
-        
         error_log($log_entry, 3, $log_file);
     }
 
     /**
      * Get current user context for logging
-     * 
+     *
      * @return string User context information
      */
     private function get_current_user_context() {
@@ -112,22 +106,20 @@ class Derleiti_Tools {
 
     /**
      * Validate file uploads with enhanced security checks
-     * 
+     *
      * @param array $file File upload data
      * @return array Filtered file data
      */
     public function validate_upload($file) {
-        // Check file size
         if ($file['size'] > self::MAX_FILE_SIZE) {
             $file['error'] = sprintf(
-                __('Datei zu groß. Maximale Dateigröße: %s', 'derleiti-plugin'), 
-                size_format(self::MAX_FILE_SIZE)
+                __('Datei zu groß. Maximale Dateigröße: %s', 'derleiti-plugin'),
+                                     size_format(self::MAX_FILE_SIZE)
             );
             $this->log_event("Dateiupload-Größenbeschränkung überschritten: {$file['name']}", 'warning');
             return $file;
         }
 
-        // Validate MIME type
         $filetype = wp_check_filetype_and_ext($file['tmp_name'], $file['name']);
         if (!in_array($filetype['type'], self::ALLOWED_MIME_TYPES)) {
             $file['error'] = __('Dateityp nicht erlaubt.', 'derleiti-plugin');
@@ -140,24 +132,19 @@ class Derleiti_Tools {
 
     /**
      * Process and optimize uploaded images
-     * 
-     * @param array $upload Upload information
+     *
+     * @param array  $upload  Upload information
      * @param string $context Upload context
      * @return array Processed upload
      */
     public function process_uploaded_images($upload, $context = 'upload') {
-        // Ensure it's an image
         if (!wp_attachment_is_image($upload['file'])) {
             return $upload;
         }
 
         try {
-            // WebP Conversion (optional, based on performance settings)
             $this->maybe_convert_to_webp($upload['file']);
-
-            // Image optimization
             $this->optimize_image($upload['file']);
-
             $this->log_event("Bild optimiert: {$upload['file']}", 'info');
         } catch (Exception $e) {
             $this->log_event("Bild-Optimierung fehlgeschlagen: " . $e->getMessage(), 'error');
@@ -168,33 +155,29 @@ class Derleiti_Tools {
 
     /**
      * Conditionally convert image to WebP
-     * 
+     *
      * @param string $file_path Path to image file
      */
     private function maybe_convert_to_webp($file_path) {
-        // Check if WebP conversion is enabled in plugin settings
-        $webp_enabled = get_option('derleiti_performance_options')['webp_conversion'] ?? false;
-        
+        $options = get_option('derleiti_performance_options');
+        $webp_enabled = isset($options['webp_conversion']) ? $options['webp_conversion'] : false;
         if (!$webp_enabled) {
             return;
         }
-
-        // Implement WebP conversion logic
-        // This is a placeholder and would require image processing library
+        // Hier müsste Logik zur WebP-Konvertierung implementiert werden
         $this->log_event("WebP-Konvertierung nicht vollständig implementiert", 'warning');
     }
 
     /**
      * Basic image optimization
-     * 
+     *
      * @param string $file_path Path to image file
      */
     private function optimize_image($file_path) {
-        // Basic image optimization
-        // In a real implementation, you'd use libraries like Imagick or GD
-        $image_quality = get_option('derleiti_performance_options')['image_quality'] ?? 85;
-        
+        $options = get_option('derleiti_performance_options');
+        $image_quality = isset($options['image_quality']) ? $options['image_quality'] : 85;
         $this->log_event("Bild-Optimierung mit Qualität: {$image_quality}", 'info');
+        // Hier kann zusätzliche Bildoptimierung implementiert werden (z.B. mit Imagick oder GD)
     }
 
     /**
@@ -202,7 +185,7 @@ class Derleiti_Tools {
      */
     public function add_performance_hints() {
         $hints = [
-            'preconnect' => [
+            'preconnect'   => [
                 'https://fonts.googleapis.com',
                 'https://fonts.gstatic.com',
             ],
@@ -214,10 +197,10 @@ class Derleiti_Tools {
         foreach ($hints as $rel => $urls) {
             foreach ($urls as $url) {
                 printf(
-                    '<link rel="%s" href="%s" crossorigin>%s', 
-                    esc_attr($rel), 
-                    esc_url($url), 
-                    "\n"
+                    '<link rel="%s" href="%s" crossorigin>%s',
+                    esc_attr($rel),
+                       esc_url($url),
+                       "\n"
                 );
             }
         }
@@ -227,18 +210,15 @@ class Derleiti_Tools {
      * Add security headers
      */
     public function add_security_headers() {
-        // Only add headers if not already set
         if (headers_sent()) {
             return;
         }
-
         $headers = [
             'X-Content-Type-Options' => 'nosniff',
-            'X-Frame-Options' => 'SAMEORIGIN',
-            'Referrer-Policy' => 'strict-origin-when-cross-origin',
-            'Permissions-Policy' => 'camera=(), microphone=(), geolocation=()',
+            'X-Frame-Options'        => 'SAMEORIGIN',
+            'Referrer-Policy'        => 'strict-origin-when-cross-origin',
+            'Permissions-Policy'     => 'camera=(), microphone=(), geolocation=()',
         ];
-
         foreach ($headers as $header => $value) {
             header("{$header}: {$value}");
         }
@@ -246,69 +226,63 @@ class Derleiti_Tools {
 
     /**
      * Enhanced social share shortcode with security improvements
-     * 
+     *
      * @param array $atts Shortcode attributes
      * @return string Generated social share HTML
      */
     public function social_share_shortcode($atts) {
-        // Sanitize and validate attributes
         $atts = shortcode_atts([
             'networks' => 'facebook,twitter,linkedin',
-            'title' => get_the_title(),
-            'url' => get_permalink(),
-            'style' => 'buttons',
+            'title'    => get_the_title(),
+                               'url'      => get_permalink(),
+                               'style'    => 'buttons',
         ], $atts, 'derleiti_social_share');
 
-        // Sanitize inputs
         $title = sanitize_text_field($atts['title']);
-        $url = esc_url($atts['url']);
+        $url   = esc_url($atts['url']);
         $networks = array_map('sanitize_key', explode(',', $atts['networks']));
 
-        // Allowed networks
         $allowed_networks = [
             'facebook' => [
                 'name' => 'Facebook',
-                'url' => 'https://www.facebook.com/sharer/sharer.php?u=%s',
+                'url'  => 'https://www.facebook.com/sharer/sharer.php?u=%s',
             ],
             'twitter' => [
                 'name' => 'Twitter',
-                'url' => 'https://twitter.com/intent/tweet?url=%s&text=%s',
+                'url'  => 'https://twitter.com/intent/tweet?url=%s&text=%s',
             ],
             'linkedin' => [
                 'name' => 'LinkedIn',
-                'url' => 'https://www.linkedin.com/shareArticle?mini=true&url=%s&title=%s',
+                'url'  => 'https://www.linkedin.com/shareArticle?mini=true&url=%s&title=%s',
             ],
         ];
 
-        // Generate share links
         $share_links = [];
         foreach ($networks as $network) {
             if (!isset($allowed_networks[$network])) {
                 continue;
             }
-
             $network_info = $allowed_networks[$network];
             $share_url = sprintf(
-                $network_info['url'], 
-                rawurlencode($url), 
-                rawurlencode($title)
+                $network_info['url'],
+                rawurlencode($url),
+                                 rawurlencode($title)
             );
-
             $share_links[] = sprintf(
                 '<a href="%s" target="_blank" rel="noopener noreferrer" class="social-share-%s">%s</a>',
                 esc_url($share_url),
-                esc_attr($network),
-                esc_html($network_info['name'])
+                                     esc_attr($network),
+                                     esc_html($network_info['name'])
             );
         }
 
         return sprintf(
-            '<div class="derleiti-social-share">%s</div>', 
+            '<div class="derleiti-social-share">%s</div>',
             implode(' ', $share_links)
         );
     }
 
-    // Additional methods for responsive_video_shortcode, performance_image_shortcode, etc. would follow similar patterns
+    // Additional methods for responsive_video_shortcode, performance_image_shortcode, etc.
 }
 
 // Initialize the tools

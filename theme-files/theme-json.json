@@ -5,17 +5,17 @@
     {
       "name": "full-width",
       "title": "Full Width Template",
-      "postTypes": ["page", "post"]
+      "postTypes": [ "page", "post" ]
     },
     {
       "name": "project-archive",
       "title": "Projects Archive",
-      "postTypes": ["page"]
+      "postTypes": [ "page" ]
     },
     {
       "name": "landing-page",
       "title": "Landing Page",
-      "postTypes": ["page"]
+      "postTypes": [ "page" ]
     }
   ],
   "settings": {
@@ -71,12 +71,12 @@
       ],
       "duotone": [
         {
-          "colors": ["#0066cc", "#f5f7fa"],
+          "colors": [ "#0066cc", "#f5f7fa" ],
           "slug": "primary-background",
           "name": "Primary and Background"
         },
         {
-          "colors": ["#2c3e50", "#f5f7fa"],
+          "colors": [ "#2c3e50", "#f5f7fa" ],
           "slug": "secondary-background",
           "name": "Secondary and Background"
         }
@@ -147,7 +147,7 @@
       "padding": true,
       "margin": true,
       "blockGap": true,
-      "units": ["px", "em", "rem", "vh", "vw", "%"],
+      "units": [ "px", "em", "rem", "vh", "vw", "%" ],
       "spacingSizes": [
         {
           "slug": "small",
@@ -318,17 +318,17 @@
     {
       "name": "full-width",
       "title": "Full Width Template",
-      "postTypes": ["page", "post"]
+      "postTypes": [ "page", "post" ]
     },
     {
       "name": "project-archive",
       "title": "Projects Archive",
-      "postTypes": ["page"]
+      "postTypes": [ "page" ]
     },
     {
       "name": "landing-page",
       "title": "Landing Page",
-      "postTypes": ["page"]
+      "postTypes": [ "page" ]
     }
   ]
 }

@@ -1,3 +1,4 @@
+<?php
 /**
  * Enhanced methods for the Derleiti_AI_Integration class to improve theme integration
  * Add these methods to the ai-integration-class.php file
@@ -17,12 +18,12 @@ private function is_theme_supported() {
  */
 private function get_theme_context() {
     $context = array(
-        'theme_name' => 'Generic',
+        'theme_name'   => 'Generic',
         'layout_style' => 'default',
         'color_scheme' => 'default'
     );
-    
-    // Apply context filter (will be utilized by theme's functions.php)
+
+    // Allow themes and plugins to modify the context via a filter
     return apply_filters('derleiti_ai_context', $context);
 }
 
@@ -32,16 +33,16 @@ private function get_theme_context() {
  */
 private function generate_system_prompt($content_type, $tone, $length) {
     $system_prompt = "Du bist ein hilfreicher KI-Assistent, der Inhalte für eine WordPress-Website generiert. ";
-    
+
     // Get theme context for more specific instructions
     $theme_context = $this->get_theme_context();
-    
-    // Add theme-specific instructions if theme supports AI integration
+
+    // Add theme-specific instructions if supported
     if ($this->is_theme_supported()) {
         $system_prompt .= "Die Website verwendet das Theme '{$theme_context['theme_name']}' ";
         $system_prompt .= "mit einem {$theme_context['layout_style']} Layout-Stil und einem {$theme_context['color_scheme']} Farbschema. ";
     }
-    
+
     // Content Type
     switch ($content_type) {
         case 'paragraph':
@@ -65,7 +66,7 @@ private function generate_system_prompt($content_type, $tone, $length) {
         default:
             $system_prompt .= "Generiere einen informativen Text ";
     }
-    
+
     // Tone
     switch ($tone) {
         case 'formal':
@@ -83,7 +84,7 @@ private function generate_system_prompt($content_type, $tone, $length) {
         default:
             $system_prompt .= "in einem ausgewogenen, neutralen Ton ";
     }
-    
+
     // Length
     switch ($length) {
         case 'short':
@@ -98,17 +99,17 @@ private function generate_system_prompt($content_type, $tone, $length) {
         default:
             $system_prompt .= "mit angemessener Länge. ";
     }
-    
-    // Add theme-specific HTML guidance if supported
+
+    // Add HTML guidance if theme supports AI integration and CSS classes are provided
     if ($this->is_theme_supported() && isset($theme_context['css_classes']) && !empty($theme_context['css_classes'])) {
         $system_prompt .= "Wenn du HTML-Auszeichnungen verwendest, nutze diese CSS-Klassen für optimale Darstellung im Theme: ";
         $system_prompt .= implode(', ', $theme_context['css_classes']) . ". ";
     } else {
         $system_prompt .= "Verwende HTML-Formatierung wenn sinnvoll, aber halte es einfach. ";
     }
-    
+
     $system_prompt .= "Antworte nur mit dem generierten Inhalt ohne zusätzliche Einleitungen oder Erklärungen.";
-    
+
     return $system_prompt;
 }
 
@@ -119,26 +120,25 @@ private function generate_system_prompt($content_type, $tone, $length) {
 public function get_prompt_templates() {
     $default_templates = array(
         'blog_post' => array(
-            'title' => __('Blog-Beitrag', 'derleiti-plugin'),
-            'prompt' => __('Schreibe einen informativen Blog-Beitrag zum Thema {topic} mit Fokus auf {aspect}.', 'derleiti-plugin'),
-            'variables' => array('topic', 'aspect'),
-            'type' => 'paragraph'
+            'title'     => __('Blog-Beitrag', 'derleiti-plugin'),
+                             'prompt'    => __('Schreibe einen informativen Blog-Beitrag zum Thema {topic} mit Fokus auf {aspect}.', 'derleiti-plugin'),
+                             'variables' => array('topic', 'aspect'),
+                             'type'      => 'paragraph'
         ),
         'product_description' => array(
-            'title' => __('Produktbeschreibung', 'derleiti-plugin'),
-            'prompt' => __('Erstelle eine überzeugende Produktbeschreibung für {product_name}, das folgende Vorteile bietet: {benefits}.', 'derleiti-plugin'),
-            'variables' => array('product_name', 'benefits'),
-            'type' => 'paragraph'
+            'title'     => __('Produktbeschreibung', 'derleiti-plugin'),
+                                       'prompt'    => __('Erstelle eine überzeugende Produktbeschreibung für {product_name}, das folgende Vorteile bietet: {benefits}.', 'derleiti-plugin'),
+                                       'variables' => array('product_name', 'benefits'),
+                                       'type'      => 'paragraph'
         ),
         'faq_questions' => array(
-            'title' => __('FAQ Fragen', 'derleiti-plugin'),
-            'prompt' => __('Generiere 5 häufig gestellte Fragen und Antworten zum Thema {topic}.', 'derleiti-plugin'),
-            'variables' => array('topic'),
-            'type' => 'list'
+            'title'     => __('FAQ Fragen', 'derleiti-plugin'),
+                                 'prompt'    => __('Generiere 5 häufig gestellte Fragen und Antworten zum Thema {topic}.', 'derleiti-plugin'),
+                                 'variables' => array('topic'),
+                                 'type'      => 'list'
         ),
     );
-    
-    // Allow themes and plugins to add their own templates
+
     return apply_filters('derleiti_ai_prompt_templates', $default_templates);
 }
 
@@ -147,26 +147,17 @@ public function get_prompt_templates() {
  * Add this method to the Derleiti_AI_Integration class
  */
 private function process_theme_content($content, $content_type) {
-    // Don't process if theme doesn't support AI integration
     if (!$this->is_theme_supported()) {
         return $content;
     }
-    
-    // Get theme context for styling classes
+
     $theme_context = $this->get_theme_context();
-    
-    // Add theme-specific wrapper and classes based on content type
-    $wrapper_class = 'derleiti-ai-block';
-    
-    // Add content type as a class
-    $wrapper_class .= ' ' . $content_type;
-    
-    // Add theme-specific class if available
+    $wrapper_class = 'derleiti-ai-block ' . $content_type;
+
     if (isset($theme_context['ai_content_class'])) {
         $wrapper_class .= ' ' . $theme_context['ai_content_class'];
     }
-    
-    // Wrap content with appropriate classes
+
     return '<div class="' . esc_attr($wrapper_class) . '">' . $content . '</div>';
 }
 
@@ -177,20 +168,17 @@ private function process_theme_content($content, $content_type) {
 public function render_ai_content_block($attributes, $content) {
     $generated_content = isset($attributes['generatedContent']) ? $attributes['generatedContent'] : '';
     $content_type = isset($attributes['contentType']) ? $attributes['contentType'] : 'paragraph';
-    
+
     if (empty($generated_content)) {
         return '<div class="derleiti-ai-placeholder">' . __('Kein KI-Inhalt generiert. Bitte geben Sie einen Prompt ein und generieren Sie Inhalt im Block-Editor.', 'derleiti-plugin') . '</div>';
     }
-    
-    // Check if AI integration class is available
+
     if (class_exists('Derleiti_AI_Integration')) {
         $ai = new Derleiti_AI_Integration();
-        // Process content through the theme-specific processor if method exists
         if (method_exists($ai, 'process_theme_content')) {
             return $ai->process_theme_content($generated_content, $content_type);
         }
     }
-    
-    // Fallback to standard output if AI integration class is not available
+
     return '<div class="derleiti-ai-block ' . esc_attr($content_type) . '">' . wp_kses_post($generated_content) . '</div>';
 }

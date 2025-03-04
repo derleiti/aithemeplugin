@@ -1,17 +1,17 @@
 /*
-Theme Name: Derleiti Modern
-Theme URI: https://derleiti.de
-Author: Derleiti
-Description: Ein modernes WordPress-Theme für Blog- und Projektdarstellung mit optimiertem Design, KI-Integration und erweiterten Block-Editor-Features.
-Version: 2.6
-Requires at least: 6.2
-Tested up to: 6.6
-Requires PHP: 8.1
-License: GNU General Public License v2 or later
-License URI: http://www.gnu.org/licenses/gpl-2.0.html
-Text Domain: derleiti-modern
-Tags: blog, portfolio, grid-layout, custom-colors, custom-logo, custom-menu, featured-images, footer-widgets, full-width-template, sticky-post, theme-options, translation-ready, block-styles, wide-blocks, editor-style, full-site-editing, block-patterns
-*/
+ * Theme Name: Derleiti Modern
+ * Theme URI: https://derleiti.de
+ * Author: Derleiti
+ * Description: Ein modernes WordPress-Theme für Blog- und Projektdarstellung mit optimiertem Design, KI-Integration und erweiterten Block-Editor-Features.
+ * Version: 2.6
+ * Requires at least: 6.2
+ * Tested up to: 6.6
+ * Requires PHP: 8.1
+ * License: GNU General Public License v2 or later
+ * License URI: http://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain: derleiti-modern
+ * Tags: blog, portfolio, grid-layout, custom-colors, custom-logo, custom-menu, featured-images, footer-widgets, full-width-template, sticky-post, theme-options, translation-ready, block-styles, wide-blocks, editor-style, full-site-editing, block-patterns
+ */
 
 :root {
     /* Basis-Farben */
@@ -23,29 +23,29 @@ Tags: blog, portfolio, grid-layout, custom-colors, custom-logo, custom-menu, fea
     --light-text: #777;
     --background: #f5f7fa;
     --card-bg: #fff;
-    
+
     /* UI-Elemente */
     --border-radius: 10px;
     --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
     --hover-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
     --transition: all 0.3s ease;
-    
+
     /* Layout */
     --container-width: 1200px;
     --grid-gap: 30px;
     --content-padding: 25px;
     --header-height: 80px;
-    
+
     /* Neue Container-Query-Breakpoints */
     --mobile: 480px;
     --tablet: 768px;
     --laptop: 1024px;
     --desktop: 1280px;
-    
+
     /* Neue Animation-Parameter */
     --animation-speed: 0.3s;
     --animation-easing: cubic-bezier(0.4, 0, 0.2, 1);
-    
+
     /* Erweitertes Schrift-System */
     --font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
     --font-size-base: 16px;
@@ -102,9 +102,9 @@ img, video, iframe {
     display: block;
 }
 
-button, 
-input[type="button"], 
-input[type="reset"], 
+button,
+input[type="button"],
+input[type="reset"],
 input[type="submit"] {
     cursor: pointer;
     font-family: inherit;
@@ -189,11 +189,9 @@ p {
     height: var(--header-height);
     display: flex;
     align-items: center;
-    transition: height var(--animation-speed) var(--animation-easing), 
-                background-color var(--animation-speed) var(--animation-easing);
+    transition: height var(--animation-speed) var(--animation-easing), background-color var(--animation-speed) var(--animation-easing);
 }
 
-/* Neue Scroll-Header Animation */
 .site-header.scrolled {
     height: 60px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -311,8 +309,7 @@ p {
     overflow: hidden;
     box-shadow: var(--box-shadow);
     margin-bottom: 30px;
-    transition: transform var(--animation-speed) var(--animation-easing), 
-                box-shadow var(--animation-speed) var(--animation-easing);
+    transition: transform var(--animation-speed) var(--animation-easing), box-shadow var(--animation-speed) var(--animation-easing);
     display: flex;
     flex-direction: column;
     height: 100%;
@@ -398,8 +395,7 @@ p {
     border-radius: 5px;
     text-decoration: none;
     font-weight: var(--font-weight-medium);
-    transition: background-color var(--animation-speed) var(--animation-easing),
-                transform var(--animation-speed) var(--animation-easing);
+    transition: background-color var(--animation-speed) var(--animation-easing), transform var(--animation-speed) var(--animation-easing);
     text-align: center;
     align-self: flex-start;
     margin-top: auto;
@@ -483,7 +479,7 @@ p {
     .post-card .post-title {
         font-size: 1.2rem;
     }
-    
+
     .post-card .post-meta {
         flex-direction: column;
         align-items: flex-start;
@@ -496,11 +492,11 @@ p {
     :root {
         --content-padding: 20px;
     }
-    
+
     .site-content {
         grid-template-columns: 1fr;
     }
-    
+
     .sidebar {
         margin-top: 30px;
     }
@@ -510,52 +506,52 @@ p {
     :root {
         --header-height: auto;
     }
-    
+
     .site-header {
         padding: 15px 0;
     }
-    
+
     .site-branding {
         flex-wrap: wrap;
         padding: 0 15px;
     }
-    
+
     .menu-toggle {
         display: block;
     }
-    
+
     .site-navigation {
         flex-basis: 100%;
         display: none;
         margin-top: 20px;
     }
-    
+
     .site-navigation.toggled {
         display: block;
     }
-    
+
     .site-navigation ul {
         flex-direction: column;
         gap: 10px;
     }
-    
+
     .site-navigation li {
         padding: 10px 0;
         border-bottom: 1px solid rgba(0,0,0,0.05);
     }
-    
+
     .site-navigation li:last-child {
         border-bottom: none;
     }
-    
+
     h1, .single .entry-title {
         font-size: 2rem;
     }
-    
+
     h2 {
         font-size: 1.75rem;
     }
-    
+
     h3 {
         font-size: 1.5rem;
     }
@@ -565,19 +561,19 @@ p {
     :root {
         --content-padding: 15px;
     }
-    
+
     .post-meta {
         flex-direction: column;
         align-items: flex-start;
         gap: 5px;
     }
-    
+
     .single .entry-meta {
         flex-direction: column;
         align-items: flex-start;
         gap: 10px;
     }
-    
+
     .site-content {
         margin: 20px auto;
     }
@@ -593,36 +589,36 @@ p {
         --secondary-color: #6c8eaf;
         --box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
     }
-    
+
     body {
         background-color: var(--background);
         color: var(--text-color);
     }
-    
+
     .site-navigation a,
-    .post-title a, 
+    .post-title a,
     .project-title a {
         color: #f5f5f5;
     }
-    
+
     .widget-title {
         border-bottom-color: rgba(255, 255, 255, 0.1);
     }
-    
+
     .project-category {
         background-color: rgba(30, 30, 30, 0.9);
         color: #e1e1e1;
     }
-    
+
     .widget ul li {
         border-bottom-color: rgba(255, 255, 255, 0.05);
     }
-    
+
     .single .entry-footer,
     .post-navigation {
         border-top-color: rgba(255, 255, 255, 0.1);
     }
-    
+
     input, textarea {
         background-color: #2c2c2c;
         border-color: #444;
@@ -650,34 +646,34 @@ p {
         background: none;
         color: #000;
     }
-    
-    .site-header, 
-    .site-navigation, 
-    .sidebar, 
-    .site-footer, 
+
+    .site-header,
+    .site-navigation,
+    .sidebar,
+    .site-footer,
     .comments-area,
     .post-navigation,
     .read-more {
         display: none !important;
     }
-    
+
     .site-content {
         display: block;
         margin: 0;
         padding: 0;
     }
-    
+
     .post-card {
         box-shadow: none;
         margin: 0;
         padding: 0;
     }
-    
+
     a {
         color: #000;
         text-decoration: underline;
     }
-    
+
     a:after {
         content: " (" attr(href) ")";
         font-size: 0.8em;

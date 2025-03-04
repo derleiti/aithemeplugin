@@ -16,7 +16,11 @@
     border: 1px solid #e2e4e7;
     padding: 20px;
     border-radius: 4px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    -webkit-border-radius: 4px;
+    -moz-border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    -webkit-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    -moz-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .derleiti-settings-container label {
@@ -50,6 +54,8 @@
     margin-top: 10px;
     border: 1px solid #e2e4e7;
     border-radius: 4px;
+    -webkit-border-radius: 4px;
+    -moz-border-radius: 4px;
 }
 
 .derleiti-debug-settings label,

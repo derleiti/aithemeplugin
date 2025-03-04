@@ -1,0 +1,59 @@
+[0;34m[2025-03-04 07:36:32] Cleanup-Script gestartet[0m
+[0;34m[2025-03-04 07:36:32] Arbeitet im Verzeichnis: /home/zombie/Downloads/derleiti-modern[0m
+[0;34m[2025-03-04 07:36:32] Überprüfe Verzeichnisstruktur...[0m
+[0;33m[2025-03-04 07:36:32] Verzeichnis ./Dokumente existiert nicht[0m
+[0;32m[2025-03-04 07:36:47] Verzeichnis ./Dokumente erstellt[0m
+[0;33m[2025-03-04 07:36:47] Verzeichnis ./Bilder existiert nicht[0m
+[0;32m[2025-03-04 07:36:52] Verzeichnis ./Bilder erstellt[0m
+[0;33m[2025-03-04 07:36:52] Verzeichnis ./Videos existiert nicht[0m
+[0;32m[2025-03-04 07:36:54] Verzeichnis ./Videos erstellt[0m
+[0;33m[2025-03-04 07:36:54] Verzeichnis ./Downloads existiert nicht[0m
+[0;32m[2025-03-04 07:36:57] Verzeichnis ./Downloads erstellt[0m
+[0;34m[2025-03-04 07:36:57] Überprüfe Dateien auf korrekte Platzierung...[0m
+[0;34m[2025-03-04 07:36:57] Suche nach temporären Dateien...[0m
+[0;32m[2025-03-04 07:36:57] Keine temporären Dateien gefunden[0m
+[0;32m[2025-03-04 07:36:57] Keine Log-Dateien gefunden[0m
+[0;34m[2025-03-04 07:36:57] Suche nach leeren Ordnern...[0m
+[0;33m[2025-03-04 07:36:57] Gefundene leere Ordner:[0m
+./Bilder
+./blocks
+./derleiti-plugin/blocks/patterns
+./derleiti-plugin/blocks/build
+./Dokumente
+./inc
+./template-parts
+./js
+./Videos
+./.git/branches
+./.git/objects/pack
+./.git/objects/info
+./.git/refs/tags
+./includes
+./Downloads
+./derleiti-modern/css
+./admin/css
+./admin/views
+./admin/js
+[0;32m[2025-03-04 07:37:07] Gelöscht: ./Bilder[0m
+[0;32m[2025-03-04 07:37:07] Gelöscht: ./blocks[0m
+[0;32m[2025-03-04 07:37:07] Gelöscht: ./derleiti-plugin/blocks/patterns[0m
+[0;32m[2025-03-04 07:37:07] Gelöscht: ./derleiti-plugin/blocks/build[0m
+[0;32m[2025-03-04 07:37:07] Gelöscht: ./Dokumente[0m
+[0;32m[2025-03-04 07:37:07] Gelöscht: ./inc[0m
+[0;32m[2025-03-04 07:37:07] Gelöscht: ./template-parts[0m
+[0;32m[2025-03-04 07:37:07] Gelöscht: ./js[0m
+[0;32m[2025-03-04 07:37:07] Gelöscht: ./Videos[0m
+[0;32m[2025-03-04 07:37:07] Gelöscht: ./.git/branches[0m
+[0;32m[2025-03-04 07:37:07] Gelöscht: ./.git/objects/pack[0m
+[0;32m[2025-03-04 07:37:07] Gelöscht: ./.git/objects/info[0m
+[0;32m[2025-03-04 07:37:07] Gelöscht: ./.git/refs/tags[0m
+[0;32m[2025-03-04 07:37:07] Gelöscht: ./includes[0m
+[0;32m[2025-03-04 07:37:07] Gelöscht: ./Downloads[0m
+[0;32m[2025-03-04 07:37:07] Gelöscht: ./derleiti-modern/css[0m
+[0;32m[2025-03-04 07:37:07] Gelöscht: ./admin/css[0m
+[0;32m[2025-03-04 07:37:07] Gelöscht: ./admin/views[0m
+[0;32m[2025-03-04 07:37:07] Gelöscht: ./admin/js[0m
+[0;34m[2025-03-04 07:37:07] Überprüfe auf unnötige Ordner...[0m
+[0;34m[2025-03-04 07:37:07] Suche nach großen Dateien (>100MB)...[0m
+[0;32m[2025-03-04 07:37:07] Keine großen Dateien gefunden[0m
+[0;32m[2025-03-04 07:37:07] Cleanup abgeschlossen. Log-Datei: cleanup_log_20250304_073632.log[0m

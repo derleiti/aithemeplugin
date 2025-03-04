@@ -314,7 +314,7 @@ backup_existing() {
         if ! create_directory "$BACKUP_DIR" "Backup directory created"; then
             print_error "Failed to create backup directory"
             return 1
-        }
+        fi
         
         backup_name=$(basename "$target_dir")_$(date +%Y%m%d_%H%M%S)
         backup_path="$BACKUP_DIR/$backup_name"
@@ -797,8 +797,8 @@ if [ -n "$LOCAL_PLUGIN_DIR" ]; then
     print_info "Derleiti Plugin found, will be installed automatically"
     INSTALL_PLUGIN="y"
 else
-    print_info "Would you like to install the Derleiti Modern Theme Plugin? (j/n)"
-    print_info "The plugin adds AI integration, custom blocks, and other features."
+    echo -e "${YELLOW}Would you like to install the Derleiti Modern Theme Plugin? (j/n)${NC}"
+    echo -e "${CYAN}The plugin adds AI integration, custom blocks, and other features.${NC}"
     read -p "> " INSTALL_PLUGIN
 fi
 
@@ -817,7 +817,7 @@ if [ "$INSTALL_PLUGIN" = "j" ] || [ "$INSTALL_PLUGIN" = "J" ] || [ "$INSTALL_PLU
 fi
 
 # Verify compatibility if everything was successful
-if [ $THEME_SUCCESS -eq 0 ] && { [ "$INSTALL_PLUGIN" != "j" ] || [ $PLUGIN_SUCCESS -eq 0 ]; }; then
+if [ $THEME_SUCCESS -eq 0 ] && { [ "$INSTALL_PLUGIN" != "j" ] && [ "$INSTALL_PLUGIN" != "J" ] && [ "$INSTALL_PLUGIN" != "y" ] && [ "$INSTALL_PLUGIN" != "Y" ] && [ "$INSTALL_PLUGIN" != "1" ] || [ $PLUGIN_SUCCESS -eq 0 ]; }; then
     verify_compatibility
 fi
 

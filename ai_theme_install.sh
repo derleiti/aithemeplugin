@@ -1,8 +1,8 @@
 #!/bin/bash
 # Derleiti Modern Theme - Enhanced Installation Script
-# Version 3.2.0 - Compatible with WordPress 6.7+ and supports PHP 8.1-8.3
-# Enhanced error handling, improved logging, expanded AI integration, and streamlined installation process
-# Updates: Added verification for plugin compatibility, improved backup features, enhanced security measures
+# Version 3.3.0 - Compatible with WordPress 6.7+ and supports PHP 8.1-8.3
+# Enhanced error handling, improved logging, expanded AI integration, and automated installation
+# Updates: Automatic detection of installation directories and files
 
 # Color codes for better readability
 GREEN='\033[0;32m'
@@ -17,13 +17,14 @@ NC='\033[0m' # No Color
 # Variables
 DEBUG_MODE=0
 LOG_FILE="derleiti_install_$(date +%Y%m%d_%H%M%S).log"
-SCRIPT_VERSION="3.2.0"
+SCRIPT_VERSION="3.3.0"
 MIN_PHP_VERSION="8.1.0"
 MIN_WP_VERSION="6.2.0"
 RECOMMENDED_WP_VERSION="6.7"
 THEME_VERSION="2.2"
 PLUGIN_VERSION="1.2.0"
 BACKUP_DIR="derleiti_backups_$(date +%Y%m%d)"
+SCRIPT_DIR="$(pwd)"
 
 # Functions for UI
 print_header() {
@@ -99,6 +100,7 @@ init_log_file() {
     if command_exists php; then
         echo "[$(date +"%Y-%m-%d %H:%M:%S")] PHP Version: $(php -r 'echo PHP_VERSION;')" >> "$LOG_FILE"
     fi
+    echo "[$(date +"%Y-%m-%d %H:%M:%S")] Running in directory: $(pwd)" >> "$LOG_FILE"
     echo "[$(date +"%Y-%m-%d %H:%M:%S")] ----------------------------------------" >> "$LOG_FILE"
 }
 
@@ -306,31 +308,24 @@ backup_existing() {
     
     if [ -d "$target_dir" ]; then
         print_info "Existing $type found at $target_dir"
-        echo -e "${YELLOW}Would you like to backup the existing $type before replacing it? (j/n)${NC}"
-        read -p "> " DO_BACKUP
+        print_info "Creating backup of existing $type before replacement"
         
-        if [[ "$DO_BACKUP" == "j" || "$DO_BACKUP" == "J" ]]; then
-            # Create backup directory if it doesn't exist
-            if ! create_directory "$BACKUP_DIR" "Backup directory created"; then
-                print_error "Failed to create backup directory"
-                return 1
-            fi
-            
-            backup_name=$(basename "$target_dir")_$(date +%Y%m%d_%H%M%S)
-            backup_path="$BACKUP_DIR/$backup_name"
-            
-            print_progress "Backing up existing $type to $backup_path"
-            
-            if cp -r "$target_dir" "$backup_path"; then
-                print_success "Existing $type backed up successfully"
-            else
-                print_error "Failed to backup existing $type"
-                echo -e "${YELLOW}Do you want to continue anyway? (j/n)${NC}"
-                read -p "> " CONTINUE_WITHOUT_BACKUP
-                if [[ "$CONTINUE_WITHOUT_BACKUP" != "j" && "$CONTINUE_WITHOUT_BACKUP" != "J" ]]; then
-                    return 1
-                fi
-            fi
+        # Create backup directory if it doesn't exist
+        if ! create_directory "$BACKUP_DIR" "Backup directory created"; then
+            print_error "Failed to create backup directory"
+            return 1
+        }
+        
+        backup_name=$(basename "$target_dir")_$(date +%Y%m%d_%H%M%S)
+        backup_path="$BACKUP_DIR/$backup_name"
+        
+        print_progress "Backing up existing $type to $backup_path"
+        
+        if cp -r "$target_dir" "$backup_path"; then
+            print_success "Existing $type backed up successfully"
+        else
+            print_error "Failed to backup existing $type"
+            print_warning "Continuing without backup"
         fi
     fi
     
@@ -408,6 +403,124 @@ safe_copy() {
     fi
 }
 
+# Detect WordPress installation
+detect_wordpress() {
+    print_section "Detecting WordPress Installation"
+    
+    # Check if current directory is a WordPress installation
+    if [ -f "./wp-config.php" ]; then
+        WP_PATH=$(pwd)
+        print_success "WordPress installation found in current directory"
+        return 0
+    fi
+    
+    # Check if this might be a wp-content/themes directory
+    if [ -d "../../../wp-includes" ] && [ -f "../../../wp-config.php" ]; then
+        WP_PATH=$(cd "../../../" && pwd)
+        print_success "WordPress installation found (we appear to be in a theme subdirectory)"
+        return 0
+    fi
+    
+    # Check if this might be a wp-content directory
+    if [ -d "../../wp-includes" ] && [ -f "../../wp-config.php" ]; then
+        WP_PATH=$(cd "../../" && pwd)
+        print_success "WordPress installation found (we appear to be in the wp-content directory)"
+        return 0
+    fi
+    
+    # Check if parent directory is a WordPress installation
+    if [ -f "../wp-config.php" ]; then
+        WP_PATH=$(cd "../" && pwd)
+        print_success "WordPress installation found in parent directory"
+        return 0
+    fi
+    
+    print_warning "No WordPress installation detected automatically"
+    print_info "Assuming current directory is the target WordPress directory"
+    WP_PATH=$(pwd)
+    
+    # Create necessary directories if they don't exist
+    if ! create_directory "$WP_PATH/wp-content/themes" "WordPress themes directory created"; then
+        print_error "Failed to create WordPress directories"
+        return 1
+    fi
+    
+    if ! create_directory "$WP_PATH/wp-content/plugins" "WordPress plugins directory created"; then
+        print_error "Failed to create WordPress directories"
+        return 1
+    fi
+    
+    return 0
+}
+
+# Detect theme and plugin files
+detect_installation_files() {
+    print_section "Detecting Installation Files"
+    
+    # Check for theme files in the current directory
+    LOCAL_THEME_DIR=""
+    if [ -d "$SCRIPT_DIR/derleiti-modern" ] && [ -f "$SCRIPT_DIR/derleiti-modern/style.css" ]; then
+        LOCAL_THEME_DIR="$SCRIPT_DIR/derleiti-modern"
+        print_success "Derleiti Modern theme found in current directory"
+    fi
+    
+    # Check for plugin files in the current directory
+    LOCAL_PLUGIN_DIR=""
+    if [ -d "$SCRIPT_DIR/derleiti-plugin" ] && [ -f "$SCRIPT_DIR/derleiti-plugin/derleiti-plugin.php" ]; then
+        LOCAL_PLUGIN_DIR="$SCRIPT_DIR/derleiti-plugin"
+        print_success "Derleiti Plugin found in current directory"
+    fi
+    
+    # If we didn't find the theme, check various likely locations
+    if [ -z "$LOCAL_THEME_DIR" ]; then
+        # Check possible relative locations
+        possible_theme_locations=(
+            "./themes/derleiti-modern"
+            "../themes/derleiti-modern"
+            "../derleiti-modern"
+        )
+        
+        for location in "${possible_theme_locations[@]}"; do
+            if [ -d "$location" ] && [ -f "$location/style.css" ]; then
+                LOCAL_THEME_DIR=$(cd "$location" && pwd)
+                print_success "Derleiti Modern theme found at $location"
+                break
+            fi
+        done
+    fi
+    
+    # If we didn't find the plugin, check various likely locations
+    if [ -z "$LOCAL_PLUGIN_DIR" ]; then
+        # Check possible relative locations
+        possible_plugin_locations=(
+            "./plugins/derleiti-plugin"
+            "../plugins/derleiti-plugin"
+            "../derleiti-plugin"
+        )
+        
+        for location in "${possible_plugin_locations[@]}"; do
+            if [ -d "$location" ] && [ -f "$location/derleiti-plugin.php" ]; then
+                LOCAL_PLUGIN_DIR=$(cd "$location" && pwd)
+                print_success "Derleiti Plugin found at $location"
+                break
+            fi
+        done
+    fi
+    
+    # Summary of what we found
+    if [ -n "$LOCAL_THEME_DIR" ]; then
+        print_info "Will install theme from: $LOCAL_THEME_DIR"
+    else
+        print_info "Theme not found locally, will download from web"
+    fi
+    
+    if [ -n "$LOCAL_PLUGIN_DIR" ]; then
+        print_info "Will install plugin from: $LOCAL_PLUGIN_DIR"
+    else
+        print_info "Plugin not found locally, will download from web if needed"
+    fi
+}
+
 # Install Derleiti Modern Theme
 install_theme() {
     print_section "Installing Derleiti Modern Theme"
@@ -426,30 +539,11 @@ install_theme() {
         return 1
     fi
     
-    # Option to install from local files or download
-    echo -e "${YELLOW}Install theme from: ${NC}"
-    echo -e "1. Local files (if you have theme files downloaded)"
-    echo -e "2. Download from the web"
-    read -p "> " INSTALL_SOURCE
-    
-    if [ "$INSTALL_SOURCE" == "1" ]; then
-        echo -e "${YELLOW}Please enter the path to the theme files:${NC}"
-        read -p "> " THEME_SOURCE
-        
-        if [ ! -d "$THEME_SOURCE" ]; then
-            print_error "Source directory does not exist: $THEME_SOURCE"
-            return 1
-        fi
-        
-        # Check if it's a proper theme directory
-        if [ ! -f "$THEME_SOURCE/style.css" ]; then
-            print_error "Not a valid theme directory (style.css missing)"
-            return 1
-        fi
-
-        safe_copy "$THEME_SOURCE" "$THEME_PATH" "Derleiti Modern Theme"
+    # Install from local files if available, otherwise download
+    if [ -n "$LOCAL_THEME_DIR" ]; then
+        safe_copy "$LOCAL_THEME_DIR" "$THEME_PATH" "Derleiti Modern Theme"
     else
-        # Download from the web (example URL - replace with actual URL)
+        # Download from the web
         THEME_URL="https://downloads.derleiti.de/themes/derleiti-modern-${THEME_VERSION}.zip"
         THEME_ZIP="/tmp/derleiti-modern.zip"
         
@@ -504,30 +598,11 @@ install_plugin() {
         return 1
     fi
     
-    # Option to install from local files or download
-    echo -e "${YELLOW}Install plugin from: ${NC}"
-    echo -e "1. Local files (if you have plugin files downloaded)"
-    echo -e "2. Download from the web"
-    read -p "> " INSTALL_SOURCE
-    
-    if [ "$INSTALL_SOURCE" == "1" ]; then
-        echo -e "${YELLOW}Please enter the path to the plugin files:${NC}"
-        read -p "> " PLUGIN_SOURCE
-        
-        if [ ! -d "$PLUGIN_SOURCE" ]; then
-            print_error "Source directory does not exist: $PLUGIN_SOURCE"
-            return 1
-        fi
-        
-        # Check if it's a proper plugin directory
-        if [ ! -f "$PLUGIN_SOURCE/derleiti-plugin.php" ]; then
-            print_error "Not a valid plugin directory (derleiti-plugin.php missing)"
-            return 1
-        fi
-
-        safe_copy "$PLUGIN_SOURCE" "$PLUGIN_PATH" "Derleiti Plugin"
+    # Install from local files if available, otherwise download
+    if [ -n "$LOCAL_PLUGIN_DIR" ]; then
+        safe_copy "$LOCAL_PLUGIN_DIR" "$PLUGIN_PATH" "Derleiti Plugin"
     else
-        # Download from the web (example URL - replace with actual URL)
+        # Download from the web
         PLUGIN_URL="https://downloads.derleiti.de/plugins/derleiti-plugin-${PLUGIN_VERSION}.zip"
         PLUGIN_ZIP="/tmp/derleiti-plugin.zip"
         
@@ -574,7 +649,7 @@ verify_compatibility() {
         return 1
     fi
     
-    if [ "$INSTALL_PLUGIN" = "j" ] || [ "$INSTALL_PLUGIN" = "J" ]; then
+    if [ "$INSTALL_PLUGIN" = "j" ] || [ "$INSTALL_PLUGIN" = "J" ] || [ "$INSTALL_PLUGIN" = "y" ] || [ "$INSTALL_PLUGIN" = "Y" ] || [ "$INSTALL_PLUGIN" = "1" ]; then
         if [ ! -f "$PLUGIN_PATH/derleiti-plugin.php" ]; then
             print_warning "Plugin is not installed properly"
         else
@@ -624,21 +699,21 @@ display_summary() {
     local theme_success=$1
     local plugin_success=0
     
-    if [ "$INSTALL_PLUGIN" = "j" ] || [ "$INSTALL_PLUGIN" = "J" ]; then
+    if [ "$INSTALL_PLUGIN" = "j" ] || [ "$INSTALL_PLUGIN" = "J" ] || [ "$INSTALL_PLUGIN" = "y" ] || [ "$INSTALL_PLUGIN" = "Y" ] || [ "$INSTALL_PLUGIN" = "1" ]; then
         plugin_success=$2
     fi
     
     print_section "Installation Summary"
     
-    if [ $theme_success -eq 1 ]; then
+    if [ $theme_success -eq 0 ]; then
         print_success "Derleiti Modern Theme installed successfully"
         print_info "Theme directory: $THEME_PATH"
     else
         print_error "Derleiti Modern Theme installation failed"
     fi
     
-    if [ "$INSTALL_PLUGIN" = "j" ] || [ "$INSTALL_PLUGIN" = "J" ]; then
-        if [ $plugin_success -eq 1 ]; then
+    if [ "$INSTALL_PLUGIN" = "j" ] || [ "$INSTALL_PLUGIN" = "J" ] || [ "$INSTALL_PLUGIN" = "y" ] || [ "$INSTALL_PLUGIN" = "Y" ] || [ "$INSTALL_PLUGIN" = "1" ]; then
+        if [ $plugin_success -eq 0 ]; then
             print_success "Derleiti Plugin installed successfully"
             print_info "Plugin directory: $PLUGIN_PATH"
         else
@@ -654,7 +729,7 @@ display_summary() {
     
     echo -e "\n${GREEN}${BOLD}Next Steps:${NC}"
     echo -e "1. ${BLUE}Activate the theme in WordPress Admin > Appearance > Themes${NC}"
-    if [ "$INSTALL_PLUGIN" = "j" ] || [ "$INSTALL_PLUGIN" = "J" ]; then
+    if [ "$INSTALL_PLUGIN" = "j" ] || [ "$INSTALL_PLUGIN" = "J" ] || [ "$INSTALL_PLUGIN" = "y" ] || [ "$INSTALL_PLUGIN" = "Y" ] || [ "$INSTALL_PLUGIN" = "1" ]; then
         echo -e "2. ${BLUE}Activate the plugin in WordPress Admin > Plugins${NC}"
         echo -e "3. ${BLUE}Configure the plugin settings in WordPress Admin > Derleiti Theme${NC}"
     fi
@@ -676,47 +751,35 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-print_section "WordPress Directory"
-echo -e "${YELLOW}Please enter the full path to the WordPress main directory${NC}"
-echo -e "${YELLOW}(e.g. /var/www/html or /var/www/derleiti.de):${NC}"
-read -p "> " WP_PATH
-WP_PATH=${WP_PATH%/}
-
-if [ ! -d "$WP_PATH" ]; then
-    print_error "The specified directory does not exist."
-    echo -e "${YELLOW}Would you like to create the directory? (j/n)${NC}"
-    read -p "> " CREATE_DIR
-    if [[ "$CREATE_DIR" == "j" || "$CREATE_DIR" == "J" ]]; then
-        if ! create_directory "$WP_PATH" "Directory created."; then
-            print_error "Installation aborted."
-            exit 1
-        fi
-    else
-        print_error "Installation aborted."
-        exit 1
-    fi
+# Auto-detect WordPress installation in current directory
+detect_wordpress
+if [ $? -ne 0 ]; then
+    print_error "Failed to detect WordPress installation. Aborting."
+    exit 1
 fi
 
+print_info "WordPress directory: $WP_PATH"
+
+# Set theme and plugin paths
+THEME_PATH="$WP_PATH/wp-content/themes/derleiti-modern"
+PLUGIN_PATH="$WP_PATH/wp-content/plugins/derleiti-plugin"
+
+print_info "Theme will be installed in: $THEME_PATH"
+print_info "Plugin can be installed in: $PLUGIN_PATH"
+
+# Detect installation files in the current directory
+detect_installation_files
+
+# Check if WordPress is installed
 if [ -f "$WP_PATH/wp-config.php" ]; then
     print_success "WordPress installation found"
     check_wp_version
     WP_VERSION_OK=$?
     if [ $WP_VERSION_OK -ne 0 ]; then
-        echo -e "${YELLOW}Continue despite WordPress version warning? (j/n)${NC}"
-        read -p "> " CONTINUE_DESPITE_VERSION
-        if [[ "$CONTINUE_DESPITE_VERSION" != "j" && "$CONTINUE_DESPITE_VERSION" != "J" ]]; then
-            print_error "Installation aborted."
-            exit 1
-        fi
+        print_warning "Continue despite WordPress version warning"
     fi
 else
     print_warning "No WordPress installation found (wp-config.php not present)"
-    echo -e "${YELLOW}Do you want to continue anyway? (j/n)${NC}"
-    read -p "> " CONTINUE_WITHOUT_WP
-    if [[ "$CONTINUE_WITHOUT_WP" != "j" && "$CONTINUE_WITHOUT_WP" != "J" ]]; then
-        print_error "Installation aborted."
-        exit 1
-    fi
     print_info "Creating necessary directories for WordPress..."
     if ! create_directory "$WP_PATH/wp-content/themes" "Themes directory created"; then
         print_error "Installation aborted."
@@ -728,24 +791,16 @@ else
     fi
 fi
 
-THEME_PATH="$WP_PATH/wp-content/themes/derleiti-modern"
-PLUGIN_PATH="$WP_PATH/wp-content/plugins/derleiti-plugin"
-
-print_info "WordPress directory: $WP_PATH"
-print_info "Theme will be installed in: $THEME_PATH"
-print_info "Plugin can be installed in: $PLUGIN_PATH"
-echo ""
-echo -e "${YELLOW}Do you want to continue with the installation? (j/n)${NC}"
-read -p "> " CONTINUE
-if [[ "$CONTINUE" != "j" && "$CONTINUE" != "J" ]]; then
-    print_error "Installation aborted."
-    exit 1
+# Auto-detect if plugin should be installed
+INSTALL_PLUGIN="n"
+if [ -n "$LOCAL_PLUGIN_DIR" ]; then
+    print_info "Derleiti Plugin found, will be installed automatically"
+    INSTALL_PLUGIN="y"
+else
+    print_info "Would you like to install the Derleiti Modern Theme Plugin? (j/n)"
+    print_info "The plugin adds AI integration, custom blocks, and other features."
+    read -p "> " INSTALL_PLUGIN
 fi
-
-echo -e "${YELLOW}Would you also like to install the Derleiti Modern Theme Plugin? (j/n)${NC}"
-echo -e "${CYAN}The plugin adds AI integration, custom blocks, and other features.${NC}"
-read -p "> " INSTALL_PLUGIN
-INSTALL_PLUGIN=$(echo "$INSTALL_PLUGIN" | tr '[:upper:]' '[:lower:]')
 
 # Create backup directory if needed
 create_directory "$BACKUP_DIR" "Backup directory created"
@@ -756,7 +811,7 @@ THEME_SUCCESS=$?
 
 # Install plugin if requested
 PLUGIN_SUCCESS=0
-if [ "$INSTALL_PLUGIN" = "j" ]; then
+if [ "$INSTALL_PLUGIN" = "j" ] || [ "$INSTALL_PLUGIN" = "J" ] || [ "$INSTALL_PLUGIN" = "y" ] || [ "$INSTALL_PLUGIN" = "Y" ] || [ "$INSTALL_PLUGIN" = "1" ]; then
     install_plugin
     PLUGIN_SUCCESS=$?
 fi
